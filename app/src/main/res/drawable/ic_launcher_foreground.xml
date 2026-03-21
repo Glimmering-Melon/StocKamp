@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Chart icon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,74 L34,50 L42,50 L42,74 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,74 L46,42 L54,42 L54,74 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M58,74 L58,54 L66,54 L66,74 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,74 L70,34 L78,34 L78,74 Z"/>
+    <!-- Trend line -->
+    <path
+        android:fillColor="#00D68F"
+        android:pathData="M34,48 L46,40 L58,52 L78,32"
+        android:strokeWidth="3"
+        android:strokeColor="#00D68F"/>
+</vector>
