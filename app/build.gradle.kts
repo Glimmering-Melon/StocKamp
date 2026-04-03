@@ -42,6 +42,18 @@ android {
             "SUPABASE_ANON_KEY",
             "\"${localProperties.getProperty("supabase.anon.key", "")}\""
         )
+
+        // API Keys for Alpha Vantage and Finnhub
+        buildConfigField(
+            "String",
+            "ALPHA_VANTAGE_KEY",
+            "\"${localProperties.getProperty("ALPHA_VANTAGE_KEY", "")}\""
+        )
+        buildConfigField(
+            "String",
+            "FINNHUB_KEY",
+            "\"${localProperties.getProperty("FINNHUB_KEY", "")}\""
+        )
     }
 
     buildTypes {

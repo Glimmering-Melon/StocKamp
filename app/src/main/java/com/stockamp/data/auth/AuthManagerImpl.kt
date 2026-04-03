@@ -3,6 +3,7 @@ package com.stockamp.data.auth
 import android.util.Log
 import com.stockamp.data.model.UserProfile
 import com.stockamp.data.storage.EncryptedStorage
+import com.stockamp.data.supabase.EmailConfirmationRequiredException
 import com.stockamp.data.supabase.SupabaseClient
 import com.stockamp.data.sync.SyncEngine
 import kotlinx.coroutines.flow.Flow
