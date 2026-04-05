@@ -94,13 +94,13 @@ fun StockDetailScreen(
 
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        String.format("%,.0f", stock.currentPrice),
+                        "$${String.format("%,.2f", stock.currentPrice)}",
                         style = MaterialTheme.typography.displayMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        "VNĐ",
+                        "USD",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 6.dp)
@@ -118,7 +118,7 @@ fun StockDetailScreen(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        "${if (isPositive) "+" else ""}${String.format("%,.0f", stock.change)} (${String.format("%.2f", stock.changePercent)}%)",
+                        "${if (isPositive) "+" else ""}${String.format("%,.2f", stock.change)} (${String.format("%.2f", stock.changePercent)}%)",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = if (isPositive) AccentGreen else AccentRed
@@ -147,7 +147,7 @@ fun StockDetailScreen(
 
                 // Key Stats
                 Text(
-                    "Thông tin chi tiết",
+                    "Stock Details",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -159,19 +159,19 @@ fun StockDetailScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        StatRow("Sàn", stock.exchange)
+                        StatRow("Exchange", stock.exchange)
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        StatRow("Ngành", stock.sector)
+                        StatRow("Sector", stock.sector)
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        StatRow("Khối lượng", String.format("%,d", stock.volume))
+                        StatRow("Volume", String.format("%,d", stock.volume))
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        StatRow("Vốn hóa", formatMarketCap(stock.marketCap))
+                        StatRow("Market Cap", formatMarketCap(stock.marketCap))
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        StatRow("Đỉnh 52 tuần", String.format("%,.0f", stock.high52Week))
+                        StatRow("52W High", "$${String.format("%,.2f", stock.high52Week)}")
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        StatRow("Đáy 52 tuần", String.format("%,.0f", stock.low52Week))
+                        StatRow("52W Low", "$${String.format("%,.2f", stock.low52Week)}")
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        StatRow("Giá đóng cửa trước", String.format("%,.0f", stock.previousClose))
+                        StatRow("Previous Close", "$${String.format("%,.2f", stock.previousClose)}")
                     }
                 }
 

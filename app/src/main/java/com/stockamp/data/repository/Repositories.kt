@@ -4,6 +4,7 @@ import com.stockamp.data.local.StockDao
 import com.stockamp.data.local.WatchlistDao
 import com.stockamp.data.local.JournalDao
 import com.stockamp.data.model.*
+import com.stockamp.data.network.FinnhubApiService
 import com.stockamp.data.sample.SampleData
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -11,7 +12,8 @@ import javax.inject.Singleton
 
 @Singleton
 class StockRepository @Inject constructor(
-    private val stockDao: StockDao
+    private val stockDao: StockDao,
+    private val finnhubApiService: FinnhubApiService
 ) {
     fun getAllStocks(): Flow<List<Stock>> = stockDao.getAllStocks()
 
@@ -29,6 +31,54 @@ class StockRepository @Inject constructor(
 
     suspend fun loadSampleData() {
         stockDao.insertStocks(SampleData.stocks)
+    }
+
+    /**
+     * Refresh all stock prices from Finnhub API.
+     * Fetches /quote for each stock and updates Room DB.
+     * Includes delay between calls to respect rate limiting (60 calls/min).
+     */
+    suspend fun refreshStockPrices(): Result<Unit> = runCatching {
+        val stocks = SampleData.stocks
+        for (stock in stocks) {
+            val quoteResult = finnhubApiService.getQuote(stock.symbol)
+            quoteResult.onSuccess { quote ->
+                if (quote.c > 0) { // Valid price
+                    val updatedStock = stock.copy(
+                        currentPrice = quote.c,
+                        previousClose = quote.pc,
+                        change = quote.d,
+                        changePercent = quote.dp,
+                        lastUpdated = System.currentTimeMillis()
+                    )
+                    stockDao.insertStocks(listOf(updatedStock))
+                }
+            }
+            // Small delay to respect rate limit (60 calls/min = 1 call/sec)
+            kotlinx.coroutines.delay(100)
+        }
+    }
+
+    /**
+     * Refresh a single stock's price from Finnhub API.
+     */
+    suspend fun refreshSingleStock(symbol: String): Result<Stock?> = runCatching {
+        val quoteResult = finnhubApiService.getQuote(symbol)
+        val quote = quoteResult.getOrThrow()
+        val existing = stockDao.getStockBySymbol(symbol) ?: return@runCatching null
+        if (quote.c > 0) {
+            val updated = existing.copy(
+                currentPrice = quote.c,
+                previousClose = quote.pc,
+                change = quote.d,
+                changePercent = quote.dp,
+                lastUpdated = System.currentTimeMillis()
+            )
+            stockDao.insertStocks(listOf(updated))
+            updated
+        } else {
+            existing
+        }
     }
 }
 

@@ -46,25 +46,25 @@ class HomeViewModel @Inject constructor(
             // Sample market indices
             val indices = listOf(
                 MarketIndex(
-                    name = "VN-Index",
-                    value = 1287.45,
-                    change = 12.34,
-                    changePercent = 0.97,
-                    sparkline = listOf(1265.0, 1270.0, 1268.0, 1275.0, 1272.0, 1280.0, 1285.0, 1287.45)
+                    name = "S&P 500",
+                    value = 5248.49,
+                    change = 44.91,
+                    changePercent = 0.86,
+                    sparkline = listOf(5180.0, 5195.0, 5210.0, 5205.0, 5225.0, 5240.0, 5235.0, 5248.49)
                 ),
                 MarketIndex(
-                    name = "HNX-Index",
-                    value = 234.56,
-                    change = -1.23,
-                    changePercent = -0.52,
-                    sparkline = listOf(238.0, 237.0, 236.5, 235.8, 236.2, 235.0, 234.8, 234.56)
+                    name = "NASDAQ",
+                    value = 16399.52,
+                    change = -23.87,
+                    changePercent = -0.15,
+                    sparkline = listOf(16450.0, 16440.0, 16420.0, 16430.0, 16410.0, 16405.0, 16400.0, 16399.52)
                 ),
                 MarketIndex(
-                    name = "UPCOM",
-                    value = 98.12,
-                    change = 0.45,
-                    changePercent = 0.46,
-                    sparkline = listOf(97.0, 97.3, 97.5, 97.8, 97.6, 97.9, 98.0, 98.12)
+                    name = "DOW 30",
+                    value = 39807.37,
+                    change = 47.29,
+                    changePercent = 0.12,
+                    sparkline = listOf(39700.0, 39720.0, 39750.0, 39780.0, 39760.0, 39790.0, 39800.0, 39807.37)
                 )
             )
             _uiState.update { it.copy(indices = indices) }
