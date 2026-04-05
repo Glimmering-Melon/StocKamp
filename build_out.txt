@@ -1,10 +1,12 @@
-Starting a Gradle Daemon, 1 incompatible and 3 stopped Daemons could not be reused, use --status for details
-> Task :app:preBuild UP-TO-DATE
+﻿> Task :app:preBuild UP-TO-DATE
 > Task :app:preDebugBuild UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
 > Task :app:checkKotlinGradlePluginConfigurationErrors
-> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:generateDebugBuildConfig UP-TO-DATE
 > Task :app:checkDebugAarMetadata
+> Task :app:processDebugNavigationResources UP-TO-DATE
+> Task :app:compileDebugNavigationResources UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
 > Task :app:mapDebugSourceSetPaths
 > Task :app:generateDebugResources UP-TO-DATE
 > Task :app:packageDebugResources UP-TO-DATE
@@ -25,51 +27,85 @@ Starting a Gradle Daemon, 1 incompatible and 3 stopped Daemons could not be reus
 > Task :app:processDebugResources
 > Task :app:checkDebugDuplicateClasses
 > Task :app:kspDebugKotlin
+> Task :app:mergeExtDexDebug
 > Task :app:mergeLibDexDebug UP-TO-DATE
 > Task :app:mergeDebugJniLibFolders UP-TO-DATE
-> Task :app:mergeDebugNativeLibs NO-SOURCE
-> Task :app:stripDebugDebugSymbols NO-SOURCE
 > Task :app:validateSigningDebug UP-TO-DATE
 > Task :app:writeDebugAppMetadata UP-TO-DATE
 > Task :app:writeDebugSigningConfigVersions UP-TO-DATE
-> Task :app:mergeExtDexDebug
+> Task :app:mergeDebugNativeLibs
 
-> Task :app:compileDebugKotlin FAILED
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/navigation/NavGraph.kt:115:36 Unresolved reference: dp
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/journal/JournalScreen.kt:198:24 Unresolved reference: rememberSwipeToDismissBoxState
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/journal/JournalScreen.kt:199:32 Cannot infer a type for this parameter. Please specify it explicitly.
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/journal/JournalScreen.kt:200:26 Unresolved reference: SwipeToDismissBoxValue
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/journal/JournalScreen.kt:207:5 Unresolved reference: SwipeToDismissBox
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/journal/JournalScreen.kt:210:13 @Composable invocations can only happen from the context of a @Composable function
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/journal/JournalScreen.kt:227:9 @Composable invocations can only happen from the context of a @Composable function
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/journal/JournalScreen.kt:230:35 @Composable invocations can only happen from the context of a @Composable function
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/journal/JournalScreen.kt:230:77 @Composable invocations can only happen from the context of a @Composable function
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/journal/JournalScreen.kt:231:38 @Composable invocations can only happen from the context of a @Composable function
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/StockDetailScreen.kt:162:25 Unresolved reference: HorizontalDivider
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/StockDetailScreen.kt:164:25 Unresolved reference: HorizontalDivider
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/StockDetailScreen.kt:166:25 Unresolved reference: HorizontalDivider
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/StockDetailScreen.kt:168:25 Unresolved reference: HorizontalDivider
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/StockDetailScreen.kt:170:25 Unresolved reference: HorizontalDivider
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/StockDetailScreen.kt:172:25 Unresolved reference: HorizontalDivider
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/watchlist/WatchlistScreen.kt:113:40 Unresolved reference: rememberSwipeToDismissBoxState
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/watchlist/WatchlistScreen.kt:114:48 Cannot infer a type for this parameter. Please specify it explicitly.
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/watchlist/WatchlistScreen.kt:115:42 Unresolved reference: SwipeToDismissBoxValue
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/watchlist/WatchlistScreen.kt:122:21 Unresolved reference: SwipeToDismissBox
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/watchlist/WatchlistScreen.kt:125:29 @Composable invocations can only happen from the context of a @Composable function
-e: file:///C:/Users/ASUS/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/watchlist/WatchlistScreen.kt:142:25 @Composable invocations can only happen from the context of a @Composable function
+> Task :app:stripDebugDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so. Run with --info option to learn more.
 
-FAILURE: Build failed with an exception.
+> Task :app:compileDebugKotlin
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/data/auth/AuthManagerImpl.kt:72:33 Unnecessary safe call on a non-null receiver of type String
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/data/auth/AuthManagerImpl.kt:127:33 Unnecessary safe call on a non-null receiver of type String
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/data/auth/AuthManagerImpl.kt:271:33 Unnecessary safe call on a non-null receiver of type String
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/data/chart/LocalDataSource.kt:40:41 Elvis operator (?:) always returns the left operand of non-nullable type Long
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/data/local/StocKampDatabase.kt:36:34 The corresponding parameter in the supertype 'Migration' is named 'db'. This may cause problems when calling this function with named arguments.
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/data/local/StocKampDatabase.kt:95:21 Variable 'currentTime' is never used
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/data/local/StocKampDatabase.kt:106:34 The corresponding parameter in the supertype 'Migration' is named 'db'. This may cause problems when calling this function with named arguments.
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/data/supabase/SupabaseClientImpl.kt:318:21 'setter for filter: String?' is deprecated. Use the new `filter` method instead
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/data/supabase/SupabaseClientImpl.kt:365:21 'setter for filter: String?' is deprecated. Use the new `filter` method instead
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/data/sync/SyncEngineImpl.kt:614:13 Variable 'userId' is never used
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/navigation/NavGraph.kt:130:47 'MenuBook: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.MenuBook
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/navigation/NavGraph.kt:130:72 'MenuBook: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Outlined.MenuBook
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/auth/RegisterScreen.kt:88:40 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/auth/RegisterViewModel.kt:29:51 Parameter 'displayName' is never used
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/journal/AddEditJournalScreen.kt:106:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/journal/JournalScreen.kt:99:50 'TrendingUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingUp
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/journal/JournalScreen.kt:118:43 'MenuBook: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.MenuBook
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/CrosshairOverlay.kt:79:17 Variable 'stepX' is never used
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/MarketOverviewScreen.kt:331:55 'TrendingUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingUp
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/MarketOverviewScreen.kt:331:85 'TrendingDown: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingDown
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/MarketViewModel.kt:53:18 This declaration is in a preview state and can be changed in a backwards-incompatible manner with a best-effort migration. Its usage should be marked with '@kotlinx.coroutines.FlowPreview' or '@OptIn(kotlinx.coroutines.FlowPreview::class)' if you accept the drawback of relying on preview API
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/MarketViewModel.kt:54:18 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/StockDetailScreen.kt:54:44 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/StockDetailScreen.kt:114:55 'TrendingUp: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingUp
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/market/StockDetailScreen.kt:114:85 'TrendingDown: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.TrendingDown
+w: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/app/src/main/java/com/stockamp/ui/sync/SyncErrorDialog.kt:75:21 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
 
-* What went wrong:
-Execution failed for task ':app:compileDebugKotlin'.
-> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
-   > Compilation error. See log for more details
+> Task :app:compileDebugJavaWithJavac
+.\gradlew.bat : Note
+: Some input files u
+se or override a dep
+recated API.
+At line:1 char:1
++ .\gradlew.bat asse
+mbleDebug 2>&1 | Out
+-File -FilePath buil
+d_out.txt - ...
++ ~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
+    + CategoryInfo  
+            : NotSpe
+cified    : (Note: S
+ome inpu.    ..depre
+cated API.:S    trin
+g) [], RemoteEx    c
+eption
+    + FullyQualified
+Err    orId : Native
+Comman    dError
+ 
+Note: Recompile with
+ -Xlint:deprecation 
+for details.
 
-* Try:
-> Run with --stacktrace option to get the stack trace.
-> Run with --info or --debug option to get more log output.
-> Run with --scan to get full insights.
-> Get more help at https://help.gradle.org.
+> Task :app:hiltAggregateDepsDebug UP-TO-DATE
+> Task :app:hiltJavaCompileDebug
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:transformDebugClassesWithAsm
+> Task :app:mergeDebugJavaResource
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :app:mergeProjectDexDebug
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
 
-BUILD FAILED in 54s
-27 actionable tasks: 10 executed, 17 up-to-date
+[Incubating] Problems report is available at: file:///C:/Users/HP%20Victus%2016/AndroidStudioProjects/StocKamp/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 2m 38s
+44 actionable tasks: 20 executed, 24 up-to-date

@@ -65,18 +65,18 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Cổ Phiếu Việt",
+                    text = "StocKamp",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     IconButton(onClick = onSearchClick) {
-                        Icon(Icons.Default.Search, contentDescription = "Tìm kiếm",
+                        Icon(Icons.Default.Search, contentDescription = "Search",
                             tint = MaterialTheme.colorScheme.onSurface)
                     }
                     IconButton(onClick = {}) {
-                        Icon(Icons.Default.Notifications, contentDescription = "Thông báo",
+                        Icon(Icons.Default.Notifications, contentDescription = "Notifications",
                             tint = MaterialTheme.colorScheme.onSurface)
                     }
                 }
@@ -95,7 +95,7 @@ fun HomeScreen(
                 // Trang chủ heading
                 item {
                     Text(
-                        text = "Trang chủ",
+                        text = "Home",
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
@@ -104,7 +104,7 @@ fun HomeScreen(
 
                 // Market Overview Section
                 item {
-                    SectionHeader(title = "Tổng quan thị trường")
+                    SectionHeader(title = "Market Overview")
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 20.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -118,7 +118,7 @@ fun HomeScreen(
 
                 // Watchlist Section Header
                 item {
-                    SectionHeader(title = "Danh sách theo dõi")
+                    SectionHeader(title = "Watchlist")
                 }
 
                 // Watchlist rows
@@ -251,7 +251,7 @@ fun WatchlistRow(stock: Stock, onClick: () -> Unit) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = stock.symbol.take(3),
+                text = stock.symbol.take(4),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = trendColor
@@ -293,7 +293,7 @@ fun WatchlistRow(stock: Stock, onClick: () -> Unit) {
         // Price & change
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = String.format("%,.0f", stock.currentPrice),
+                text = "$${String.format("%.2f", stock.currentPrice)}",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold
             )

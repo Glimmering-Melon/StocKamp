@@ -17,7 +17,10 @@ data class MarketUiState(
     val sectors: List<MarketSector> = emptyList(),
     val searchQuery: String = "",
     val isLoading: Boolean = true,
-    val selectedSector: String? = null
+    val isRefreshing: Boolean = false,
+    val selectedSector: String? = null,
+    val errorMessage: String? = null,
+    val lastUpdated: Long? = null
 )
 
 data class StockDetailUiState(
@@ -41,6 +44,8 @@ class MarketViewModel @Inject constructor(
         viewModelScope.launch {
             stockRepository.loadSampleData()
             _uiState.update { it.copy(sectors = stockRepository.getSectors()) }
+            // Auto-refresh prices from API on init
+            refreshPrices()
         }
 
         viewModelScope.launch {
@@ -71,6 +76,37 @@ class MarketViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * Refresh all stock prices from Finnhub API.
+     * Called on init and on pull-to-refresh.
+     */
+    fun refreshPrices() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
+            stockRepository.refreshStockPrices()
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            isRefreshing = false,
+                            lastUpdated = System.currentTimeMillis()
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            isRefreshing = false,
+                            errorMessage = e.message ?: "Failed to refresh prices"
+                        )
+                    }
+                }
+        }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(errorMessage = null) }
+    }
 }
 
 @HiltViewModel
@@ -84,6 +120,8 @@ class StockDetailViewModel @Inject constructor(
 
     fun loadStock(symbol: String) {
         viewModelScope.launch {
+            // First refresh price from API
+            stockRepository.refreshSingleStock(symbol)
             val stock = stockRepository.getStockBySymbol(symbol)
             val prices = stockRepository.getPriceHistory(symbol)
             val inWatchlist = watchlistRepository.isInWatchlist(symbol)
@@ -111,3 +149,4 @@ class StockDetailViewModel @Inject constructor(
         }
     }
 }
+
