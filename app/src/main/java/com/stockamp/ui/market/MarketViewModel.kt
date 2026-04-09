@@ -44,16 +44,19 @@ class MarketViewModel @Inject constructor(
         viewModelScope.launch {
             stockRepository.loadSampleData()
             _uiState.update { it.copy(sectors = stockRepository.getSectors()) }
-            // Auto-refresh prices from API on init
             refreshPrices()
         }
 
         viewModelScope.launch {
             _searchQuery
-                .debounce(300)
+                .debounce(500)
                 .flatMapLatest { query ->
-                    if (query.isBlank()) stockRepository.getAllStocks()
-                    else stockRepository.searchStocks(query)
+                    _uiState.update { it.copy(isLoading = true) }
+                    if (query.isBlank()) {
+                        stockRepository.getAllStocks()
+                    } else {
+                        flowOf(stockRepository.searchStocksGlobal(query))
+                    }
                 }
                 .collect { stocks ->
                     _uiState.update { it.copy(stocks = stocks, isLoading = false) }
@@ -69,38 +72,17 @@ class MarketViewModel @Inject constructor(
     fun filterBySector(sector: String?) {
         _uiState.update { it.copy(selectedSector = sector) }
         viewModelScope.launch {
-            val flow = if (sector == null) stockRepository.getAllStocks()
-            else stockRepository.getStocksBySector(sector)
-            flow.collect { stocks ->
-                _uiState.update { it.copy(stocks = stocks) }
-            }
+            val flow = if (sector == null) stockRepository.getAllStocks() else stockRepository.getStocksBySector(sector)
+            flow.collect { stocks -> _uiState.update { it.copy(stocks = stocks) } }
         }
     }
 
-    /**
-     * Refresh all stock prices from Finnhub API.
-     * Called on init and on pull-to-refresh.
-     */
     fun refreshPrices() {
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
             stockRepository.refreshStockPrices()
-                .onSuccess {
-                    _uiState.update {
-                        it.copy(
-                            isRefreshing = false,
-                            lastUpdated = System.currentTimeMillis()
-                        )
-                    }
-                }
-                .onFailure { e ->
-                    _uiState.update {
-                        it.copy(
-                            isRefreshing = false,
-                            errorMessage = e.message ?: "Failed to refresh prices"
-                        )
-                    }
-                }
+                .onSuccess { _uiState.update { it.copy(isRefreshing = false, lastUpdated = System.currentTimeMillis()) } }
+                .onFailure { e -> _uiState.update { it.copy(isRefreshing = false, errorMessage = e.message ?: "Failed to refresh prices") } }
         }
     }
 
@@ -120,18 +102,12 @@ class StockDetailViewModel @Inject constructor(
 
     fun loadStock(symbol: String) {
         viewModelScope.launch {
-            // First refresh price from API
             stockRepository.refreshSingleStock(symbol)
             val stock = stockRepository.getStockBySymbol(symbol)
             val prices = stockRepository.getPriceHistory(symbol)
             val inWatchlist = watchlistRepository.isInWatchlist(symbol)
             _uiState.update {
-                it.copy(
-                    stock = stock,
-                    priceHistory = prices,
-                    isInWatchlist = inWatchlist,
-                    isLoading = false
-                )
+                it.copy(stock = stock, priceHistory = prices, isInWatchlist = inWatchlist, isLoading = false)
             }
         }
     }
@@ -149,4 +125,3 @@ class StockDetailViewModel @Inject constructor(
         }
     }
 }
-
