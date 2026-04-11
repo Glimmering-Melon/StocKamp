@@ -24,9 +24,7 @@ import com.stockamp.data.model.JournalEntry
 import com.stockamp.ui.sync.SyncStatusIndicator
 import com.stockamp.ui.theme.*
 import java.text.SimpleDateFormat
-import java.util.*
-
-@OptIn(ExperimentalMaterial3Api::class)
+import java.util.*@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JournalScreen(
     onAddEntry: () -> Unit,
@@ -198,126 +196,96 @@ private fun JournalEntryCard(
     val isBuy = entry.action == "BUY"
     val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
 
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                true
-            } else false
-        }
-    )
-
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(AccentRed),
-                contentAlignment = Alignment.CenterEnd
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(1.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Default.Delete,
-                    "Delete",
-                    modifier = Modifier.padding(end = 20.dp),
-                    tint = MaterialTheme.colorScheme.onError
+                // Action Badge
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(
+                            if (isBuy) AccentGreen.copy(alpha = 0.12f) else AccentRed.copy(alpha = 0.12f)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        entry.action,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isBuy) AccentGreen else AccentRed
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    entry.symbol,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    String.format("%,.0f VNĐ", entry.totalValue),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
-        },
-        enableDismissFromStartToEnd = false
-    ) {
-        Card(
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(1.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Action Badge
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(
-                                if (isBuy) AccentGreen.copy(alpha = 0.12f) else AccentRed.copy(alpha = 0.12f)
-                            )
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            entry.action,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isBuy) AccentGreen else AccentRed
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "${entry.quantity} cổ phiếu × ${String.format("%,.0f", entry.price)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    dateFormat.format(Date(entry.createdAt)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (entry.notes.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    entry.notes,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                    maxLines = 2
+                )
+            }
+
+            if (entry.strategy.isNotBlank() || entry.emotion.isNotBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (entry.strategy.isNotBlank()) {
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text(entry.strategy, style = MaterialTheme.typography.labelSmall) },
+                            shape = RoundedCornerShape(8.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        entry.symbol,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        String.format("%,.0f VNĐ", entry.totalValue),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        "${entry.quantity} cổ phiếu × ${String.format("%,.0f", entry.price)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        dateFormat.format(Date(entry.createdAt)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                if (entry.notes.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        entry.notes,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                        maxLines = 2
-                    )
-                }
-
-                if (entry.strategy.isNotBlank() || entry.emotion.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (entry.strategy.isNotBlank()) {
-                            SuggestionChip(
-                                onClick = {},
-                                label = { Text(entry.strategy, style = MaterialTheme.typography.labelSmall) },
-                                shape = RoundedCornerShape(8.dp)
-                            )
+                    if (entry.emotion.isNotBlank()) {
+                        val emoji = when (entry.emotion) {
+                            "confident" -> "😎"
+                            "nervous" -> "😰"
+                            else -> "😐"
                         }
-                        if (entry.emotion.isNotBlank()) {
-                            val emoji = when (entry.emotion) {
-                                "confident" -> "😎"
-                                "nervous" -> "😰"
-                                else -> "😐"
-                            }
-                            SuggestionChip(
-                                onClick = {},
-                                label = { Text("$emoji ${entry.emotion}", style = MaterialTheme.typography.labelSmall) },
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                        }
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text("$emoji ${entry.emotion}", style = MaterialTheme.typography.labelSmall) },
+                            shape = RoundedCornerShape(8.dp)
+                        )
                     }
                 }
             }

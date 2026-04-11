@@ -81,13 +81,21 @@ class JournalRepository @Inject constructor(
         journalDao.updateEntry(entry.copy(modifiedAt = now))
     }
 
-    suspend fun deleteEntry(entry: JournalEntry) = journalDao.deleteEntry(entry)
+    suspend fun deleteEntry(entry: JournalEntry) {
+        if (entry.syncedAt != null) {
+            // Đã sync lên Supabase → đánh dấu isDeleted để sync engine xóa remote
+            journalDao.updateEntry(entry.copy(
+                isDeleted = true,
+                modifiedAt = System.currentTimeMillis(),
+                syncedAt = null // reset để getUnsyncedJournalEntries nhận ra
+            ))
+        } else {
+            // Chưa sync → xóa thẳng local
+            journalDao.deleteEntry(entry)
+        }
+    }
 
     suspend fun getTotalPnL(): Double = journalDao.getTotalPnL() ?: 0.0
 
     suspend fun getTotalTrades(): Int = journalDao.getTotalTrades()
-
-    suspend fun loadSampleData() {
-        SampleData.sampleJournalEntries.forEach { journalDao.insertEntry(it) }
-    }
 }

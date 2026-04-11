@@ -5,7 +5,8 @@ import com.stockamp.data.model.WatchlistItem
 import com.stockamp.data.repository.JournalRepository
 import com.stockamp.data.repository.WatchlistRepository
 import io.kotest.matchers.longs.shouldBeGreaterThan
-import io.kotest.matchers.longs.shouldBeGreaterThanOrEqualTo
+import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
+import io.kotest.matchers.comparables.shouldBeLessThanOrEqualTo
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.property.Arb
@@ -327,7 +328,7 @@ class ModificationTimestampPropertyTest {
      * Validates: Requirements 12.2
      */
     @Test
-    fun `property 22 - watchlist modifiedAt is >= original modifiedAt after update`() = runTest {
+    fun `property 22 - watchlist modifiedAt is at least original modifiedAt after update`() = runTest {
         checkAll(100, arbSymbol(), Arb.string(3..20)) { symbol, name ->
             val dao = FakeWatchlistDao()
             val repo = WatchlistRepository(dao)
@@ -379,7 +380,7 @@ class ModificationTimestampPropertyTest {
      * Validates: Requirements 12.4
      */
     @Test
-    fun `property 22 - journal modifiedAt is >= original modifiedAt after update`() = runTest {
+    fun `property 22 - journal modifiedAt is at least original modifiedAt after update`() = runTest {
         checkAll(100, arbJournalEntryWithCreatedAt()) { entry ->
             val dao = FakeJournalDao()
             val repo = JournalRepository(dao)
@@ -431,7 +432,7 @@ class ModificationTimestampPropertyTest {
      * Validates: Requirements 12.2
      */
     @Test
-    fun `property 22 - watchlist modifiedAt is >= createdAt after update`() = runTest {
+    fun `property 22 - watchlist modifiedAt is at least createdAt after update`() = runTest {
         checkAll(100, arbSymbol(), Arb.string(3..20)) { symbol, name ->
             val dao = FakeWatchlistDao()
             val repo = WatchlistRepository(dao)
@@ -455,7 +456,7 @@ class ModificationTimestampPropertyTest {
      * Validates: Requirements 12.4
      */
     @Test
-    fun `property 22 - journal modifiedAt is >= createdAt after update`() = runTest {
+    fun `property 22 - journal modifiedAt is at least createdAt after update`() = runTest {
         checkAll(100, arbJournalEntryWithCreatedAt()) { entry ->
             val dao = FakeJournalDao()
             val repo = JournalRepository(dao)

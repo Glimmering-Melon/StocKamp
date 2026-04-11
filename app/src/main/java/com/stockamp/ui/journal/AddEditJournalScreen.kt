@@ -18,16 +18,20 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.stockamp.data.model.JournalEntry
 import com.stockamp.data.repository.JournalRepository
+import com.stockamp.data.sync.SyncEngine
 import com.stockamp.ui.theme.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 
 @HiltViewModel
 class AddEditJournalViewModel @Inject constructor(
-    private val journalRepository: JournalRepository
+    private val journalRepository: JournalRepository,
+    private val syncEngine: SyncEngine,
+    private val authManager: com.stockamp.data.auth.AuthManager
 ) : ViewModel() {
 
     var entry by mutableStateOf<JournalEntry?>(null)
@@ -51,8 +55,10 @@ class AddEditJournalViewModel @Inject constructor(
         onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
+            val userId = authManager.getCurrentUser().firstOrNull()?.id ?: ""
             val newEntry = JournalEntry(
                 id = entry?.id ?: 0,
+                userId = if (entry != null) (entry!!.userId.ifBlank { userId }) else userId,
                 symbol = symbol.uppercase(),
                 action = action,
                 quantity = quantity,
@@ -67,6 +73,16 @@ class AddEditJournalViewModel @Inject constructor(
             } else {
                 journalRepository.addEntry(newEntry)
             }
+            syncEngine.syncJournal()
+            onSuccess()
+        }
+    }
+
+    fun deleteEntry(onSuccess: () -> Unit) {
+        val current = entry ?: return
+        viewModelScope.launch {
+            journalRepository.deleteEntry(current)
+            syncEngine.syncJournal()
             onSuccess()
         }
     }
@@ -91,6 +107,30 @@ fun AddEditJournalScreen(
     var notes by remember(existingEntry) { mutableStateOf(existingEntry?.notes ?: "") }
     var emotion by remember(existingEntry) { mutableStateOf(existingEntry?.emotion ?: "neutral") }
     var strategy by remember(existingEntry) { mutableStateOf(existingEntry?.strategy ?: "") }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Xóa giao dịch") },
+            text = { Text("Bạn có chắc muốn xóa giao dịch này không?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.deleteEntry(onNavigateBack)
+                    }
+                ) {
+                    Text("Xóa", color = AccentRed)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -104,6 +144,13 @@ fun AddEditJournalScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, "Back")
+                    }
+                },
+                actions = {
+                    if (entryId != null) {
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(Icons.Default.Delete, "Xóa", tint = AccentRed)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
