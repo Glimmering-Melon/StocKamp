@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+apscheduler
+supabase
+httpx
+beautifulsoup4
+lxml
+feedparser
+python-dotenv
+pydantic
+transformers
+torch
+tiktoken
+sentencepiece
+protobuf

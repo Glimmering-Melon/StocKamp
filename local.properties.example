@@ -1,0 +1,8 @@
+# Android SDK location
+sdk.dir=/path/to/android/sdk
+
+# Supabase Configuration
+# Copy this file to local.properties and fill in your Supabase credentials
+# Get these values from your Supabase project settings: https://app.supabase.com
+supabase.url=https://your-project-id.supabase.co
+supabase.anon.key=your-anon-key-here
