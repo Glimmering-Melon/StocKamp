@@ -137,7 +137,7 @@ fun AddEditJournalScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (entryId != null) "Sửa giao dịch" else "Thêm giao dịch",
+                        if (entryId != null) "Edit Trade" else "Add Trade",
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -169,13 +169,13 @@ fun AddEditJournalScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             // Action Toggle
-            Text("Loại giao dịch", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Text("Trade Type", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 FilterChip(
                     selected = action == "BUY",
                     onClick = { action = "BUY" },
-                    label = { Text("MUA (BUY)", fontWeight = FontWeight.SemiBold) },
+                    label = { Text("BUY", fontWeight = FontWeight.SemiBold) },
                     leadingIcon = if (action == "BUY") {{ Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }} else null,
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = AccentGreen.copy(alpha = 0.15f),
@@ -186,7 +186,7 @@ fun AddEditJournalScreen(
                 FilterChip(
                     selected = action == "SELL",
                     onClick = { action = "SELL" },
-                    label = { Text("BÁN (SELL)", fontWeight = FontWeight.SemiBold) },
+                    label = { Text("SELL", fontWeight = FontWeight.SemiBold) },
                     leadingIcon = if (action == "SELL") {{ Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }} else null,
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = AccentRed.copy(alpha = 0.15f),
@@ -202,7 +202,7 @@ fun AddEditJournalScreen(
             OutlinedTextField(
                 value = symbol,
                 onValueChange = { symbol = it.uppercase() },
-                label = { Text("Mã cổ phiếu") },
+                label = { Text("Stock Symbol") },
                 leadingIcon = { Icon(Icons.Default.Business, "Symbol") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -216,7 +216,7 @@ fun AddEditJournalScreen(
                 OutlinedTextField(
                     value = quantity,
                     onValueChange = { quantity = it.filter { c -> c.isDigit() } },
-                    label = { Text("Số lượng") },
+                    label = { Text("Quantity") },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -225,7 +225,7 @@ fun AddEditJournalScreen(
                 OutlinedTextField(
                     value = price,
                     onValueChange = { price = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("Giá (VNĐ)") },
+                    label = { Text("Price (USD)") },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -248,9 +248,9 @@ fun AddEditJournalScreen(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Tổng giá trị", style = MaterialTheme.typography.bodyMedium)
+                        Text("Total Value", style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            String.format("%,.0f VNĐ", totalValue),
+                            String.format("$%,.2f", totalValue),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -265,8 +265,8 @@ fun AddEditJournalScreen(
             OutlinedTextField(
                 value = strategy,
                 onValueChange = { strategy = it },
-                label = { Text("Chiến lược") },
-                placeholder = { Text("VD: Swing Trade, Long-term Hold...") },
+                label = { Text("Strategy") },
+                placeholder = { Text("e.g. Swing Trade, Long-term Hold...") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
@@ -275,10 +275,10 @@ fun AddEditJournalScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Emotion
-            Text("Cảm xúc khi giao dịch", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Text("Trading Emotion", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                listOf("confident" to "😎 Tự tin", "neutral" to "😐 Bình thường", "nervous" to "😰 Lo lắng").forEach { (value, label) ->
+                listOf("confident" to "😎 Confident", "neutral" to "😐 Neutral", "nervous" to "😰 Nervous").forEach { (value, label) ->
                     FilterChip(
                         selected = emotion == value,
                         onClick = { emotion = value },
@@ -294,8 +294,8 @@ fun AddEditJournalScreen(
             OutlinedTextField(
                 value = notes,
                 onValueChange = { notes = it },
-                label = { Text("Ghi chú") },
-                placeholder = { Text("Lý do giao dịch, phân tích...") },
+                label = { Text("Notes") },
+                placeholder = { Text("Reason for trade, analysis...") },
                 modifier = Modifier.fillMaxWidth().height(120.dp),
                 shape = RoundedCornerShape(12.dp),
                 maxLines = 5
@@ -318,7 +318,7 @@ fun AddEditJournalScreen(
                 Icon(Icons.Default.Save, null, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    if (entryId != null) "Cập nhật" else "Lưu giao dịch",
+                    if (entryId != null) "Update" else "Save Trade",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )

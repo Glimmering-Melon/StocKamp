@@ -17,7 +17,10 @@ data class MarketUiState(
     val sectors: List<MarketSector> = emptyList(),
     val searchQuery: String = "",
     val isLoading: Boolean = true,
-    val selectedSector: String? = null
+    val isRefreshing: Boolean = false,
+    val selectedSector: String? = null,
+    val errorMessage: String? = null,
+    val lastUpdated: Long? = null
 )
 
 data class StockDetailUiState(
@@ -41,14 +44,19 @@ class MarketViewModel @Inject constructor(
         viewModelScope.launch {
             stockRepository.loadSampleData()
             _uiState.update { it.copy(sectors = stockRepository.getSectors()) }
+            refreshPrices()
         }
 
         viewModelScope.launch {
             _searchQuery
-                .debounce(300)
+                .debounce(500)
                 .flatMapLatest { query ->
-                    if (query.isBlank()) stockRepository.getAllStocks()
-                    else stockRepository.searchStocks(query)
+                    _uiState.update { it.copy(isLoading = true) }
+                    if (query.isBlank()) {
+                        stockRepository.getAllStocks()
+                    } else {
+                        flowOf(stockRepository.searchStocksGlobal(query))
+                    }
                 }
                 .collect { stocks ->
                     _uiState.update { it.copy(stocks = stocks, isLoading = false) }
@@ -64,12 +72,22 @@ class MarketViewModel @Inject constructor(
     fun filterBySector(sector: String?) {
         _uiState.update { it.copy(selectedSector = sector) }
         viewModelScope.launch {
-            val flow = if (sector == null) stockRepository.getAllStocks()
-            else stockRepository.getStocksBySector(sector)
-            flow.collect { stocks ->
-                _uiState.update { it.copy(stocks = stocks) }
-            }
+            val flow = if (sector == null) stockRepository.getAllStocks() else stockRepository.getStocksBySector(sector)
+            flow.collect { stocks -> _uiState.update { it.copy(stocks = stocks) } }
         }
+    }
+
+    fun refreshPrices() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true, errorMessage = null) }
+            stockRepository.refreshStockPrices()
+                .onSuccess { _uiState.update { it.copy(isRefreshing = false, lastUpdated = System.currentTimeMillis()) } }
+                .onFailure { e -> _uiState.update { it.copy(isRefreshing = false, errorMessage = e.message ?: "Failed to refresh prices") } }
+        }
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(errorMessage = null) }
     }
 }
 
@@ -84,16 +102,12 @@ class StockDetailViewModel @Inject constructor(
 
     fun loadStock(symbol: String) {
         viewModelScope.launch {
+            stockRepository.refreshSingleStock(symbol)
             val stock = stockRepository.getStockBySymbol(symbol)
             val prices = stockRepository.getPriceHistory(symbol)
             val inWatchlist = watchlistRepository.isInWatchlist(symbol)
             _uiState.update {
-                it.copy(
-                    stock = stock,
-                    priceHistory = prices,
-                    isInWatchlist = inWatchlist,
-                    isLoading = false
-                )
+                it.copy(stock = stock, priceHistory = prices, isInWatchlist = inWatchlist, isLoading = false)
             }
         }
     }
