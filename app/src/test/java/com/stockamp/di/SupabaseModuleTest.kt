@@ -64,12 +64,16 @@ class SupabaseModuleTest {
         val mockClient: SupabaseClient = mockk(relaxed = true)
         val mockMonitor: NetworkMonitor = mockk(relaxed = true)
         val mockQueue: SyncQueue = mockk(relaxed = true)
+        val mockStorage: EncryptedStorage = mockk(relaxed = true)
+        val mockLazyAuthManager: dagger.Lazy<com.stockamp.data.auth.AuthManager> = mockk(relaxed = true)
         
         val engine = SupabaseModule.provideSyncEngine(
             mockDatabase,
             mockClient,
             mockMonitor,
-            mockQueue
+            mockQueue,
+            mockStorage,
+            mockLazyAuthManager
         )
         assertNotNull("SyncEngine should not be null", engine)
     }

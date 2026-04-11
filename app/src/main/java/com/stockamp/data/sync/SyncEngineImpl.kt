@@ -257,66 +257,13 @@ class SyncEngineImpl @Inject constructor(
 
     /**
      * Bidirectional journal sync:
-     *  1. Download remote changes and upsert into Room (task 8.5)
-     *  2. Upload local unsynced / deleted entries to Supabase (task 8.4)
+     *  1. Upload local unsynced / deleted entries to Supabase (task 8.4) — upload trước
+     *  2. Download remote changes and upsert into Room (task 8.5) — download sau
      */
     override suspend fun syncJournal(): Result<Unit> = runCatching {
         val userId = currentUserId() ?: return@runCatching
 
-        // --- Download (task 8.5) ---
-        supabaseClient.fetchJournalEntries(userId).onSuccess { remoteEntries ->
-            val journalDao = database.journalDao()
-            for (remote in remoteEntries) {
-                if (remote.isDeleted) {
-                    // Remote deletion: remove from local DB if present (deletion wins per Req 7.5)
-                    val local = journalDao.getEntryById(remote.id)
-                    if (local != null) {
-                        // Check for deletion conflict: local was modified after last sync
-                        val localModifiedAfterSync = local.syncedAt == null || local.modifiedAt > local.syncedAt
-                        if (localModifiedAfterSync) {
-                            Log.d(TAG, "DELETION CONFLICT: journal ${remote.id} - local was modified but remote deletion wins")
-                        }
-                        journalDao.deleteEntry(local)
-                        Log.d(TAG, "syncJournal: deleted local entry id=${remote.id} (remote deletion)")
-                    }
-                } else {
-                    val local = journalDao.getEntryById(remote.id)
-                    if (local == null) {
-                        // New remote entry – insert with syncedAt stamped
-                        journalDao.insertEntry(remote.copy(syncedAt = System.currentTimeMillis()))
-                        Log.d(TAG, "syncJournal: inserted remote entry id=${remote.id}")
-                    } else {
-                        // Conflict detection (task 9.1): check if both sides changed since last sync
-                        val isConflict = detectConflict(local.modifiedAt, remote.modifiedAt, local.syncedAt)
-                        // Last-write-wins resolution (task 9.2)
-                        val winner = resolveConflict(local, remote)
-                        if (winner.modifiedAt >= remote.modifiedAt && !isConflict) {
-                            // Local is already up-to-date; nothing to do
-                        } else {
-                            val resolvedEntry = winner.copy(syncedAt = System.currentTimeMillis())
-                            journalDao.updateEntry(resolvedEntry)
-                            if (isConflict) {
-                                val winnerLabel = if (winner.modifiedAt == local.modifiedAt) "local" else "remote"
-                                Log.d(TAG, "CONFLICT RESOLVED: journal ${remote.id} | " +
-                                        "local=${local.modifiedAt} remote=${remote.modifiedAt} " +
-                                        "winner=$winnerLabel createdAt=${resolvedEntry.createdAt}")
-                            } else {
-                                Log.d(TAG, "syncJournal: resolved entry id=${remote.id} -> winner modifiedAt=${winner.modifiedAt}")
-                            }
-                        }
-                    }
-                }
-            }
-        }.onFailure { e ->
-            logSyncError(
-                operation = "syncJournal: download remote entries for userId=$userId",
-                error = e,
-                userFriendlyMessage = "Unable to download journal changes. Will retry automatically."
-            )
-            throw e
-        }
-
-        // --- Upload (task 8.4) ---
+        // --- Upload TRƯỚC (task 8.4) ---
         val journalDao = database.journalDao()
         val unsynced = journalDao.getUnsyncedJournalEntries()
         for (entry in unsynced) {
@@ -337,11 +284,20 @@ class SyncEngineImpl @Inject constructor(
                     }
             } else {
                 retryWithTokenRefresh { supabaseClient.upsertJournalEntry(entry) }
-                    .onSuccess {
-                        journalDao.updateEntry(
-                            entry.copy(syncedAt = System.currentTimeMillis())
-                        )
-                        Log.d(TAG, "syncJournal: uploaded entry id=${entry.id}")
+                    .onSuccess { savedEntry ->
+                        val now = System.currentTimeMillis()
+                        if (entry.id == 0L && savedEntry.id != 0L) {
+                            // Entry mới: Supabase sinh id mới, xóa bản local cũ và insert với id từ Supabase
+                            journalDao.deleteEntry(entry)
+                            journalDao.insertEntry(savedEntry.copy(
+                                userId = entry.userId,
+                                syncedAt = now
+                            ))
+                            Log.d(TAG, "syncJournal: inserted new entry with Supabase id=${savedEntry.id} (local id was ${entry.id})")
+                        } else {
+                            journalDao.updateEntry(entry.copy(syncedAt = now))
+                            Log.d(TAG, "syncJournal: uploaded entry id=${entry.id}")
+                        }
                     }.onFailure { e ->
                         // Req 13.3: queue for next sync cycle instead of throwing
                         logSyncError(
@@ -353,6 +309,46 @@ class SyncEngineImpl @Inject constructor(
                         refreshPendingCount()
                     }
             }
+        }
+
+        // --- Download SAU (task 8.5) — lấy tất cả từ Supabase về Room ---
+        supabaseClient.fetchJournalEntries(userId).onSuccess { remoteEntries ->
+            for (remote in remoteEntries) {
+                // Bỏ qua entry đang chờ xóa local
+                val localPending = journalDao.getEntryById(remote.id)
+                if (localPending?.isDeleted == true) continue
+
+                if (remote.isDeleted) {
+                    val local = journalDao.getEntryById(remote.id)
+                    if (local != null) {
+                        journalDao.deleteEntry(local)
+                        Log.d(TAG, "syncJournal: deleted local entry id=${remote.id} (remote deletion)")
+                    }
+                } else {
+                    val local = journalDao.getEntryById(remote.id)
+                    if (local == null) {
+                        // Entry mới từ Supabase (máy khác tạo) → insert vào Room
+                        journalDao.insertEntry(remote.copy(syncedAt = System.currentTimeMillis()))
+                        Log.d(TAG, "syncJournal: inserted remote entry id=${remote.id}")
+                    } else {
+                        val isConflict = detectConflict(local.modifiedAt, remote.modifiedAt, local.syncedAt)
+                        val winner = resolveConflict(local, remote)
+                        if (winner.modifiedAt >= remote.modifiedAt && !isConflict) {
+                            // Local đã up-to-date
+                        } else {
+                            journalDao.updateEntry(winner.copy(syncedAt = System.currentTimeMillis()))
+                            Log.d(TAG, "syncJournal: updated entry id=${remote.id}")
+                        }
+                    }
+                }
+            }
+        }.onFailure { e ->
+            logSyncError(
+                operation = "syncJournal: download remote entries for userId=$userId",
+                error = e,
+                userFriendlyMessage = "Unable to download journal changes. Will retry automatically."
+            )
+            throw e
         }
     }
 

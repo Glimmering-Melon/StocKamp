@@ -1,6 +1,7 @@
 package com.stockamp.data.supabase
 
 import com.stockamp.data.model.JournalEntry
+import com.stockamp.data.model.NewsArticleDto
 import com.stockamp.data.model.UserProfile
 import com.stockamp.data.model.WatchlistItem
 import io.github.jan.supabase.gotrue.user.UserSession
@@ -36,6 +37,11 @@ interface SupabaseClient {
     fun subscribeToWatchlistChanges(userId: String, onEvent: (WatchlistItem, ChangeType) -> Unit)
     fun subscribeToJournalChanges(userId: String, onEvent: (JournalEntry, ChangeType) -> Unit)
     fun unsubscribeAll()
+
+    // News
+    suspend fun fetchNewsArticles(offset: Int, limit: Int): Result<List<NewsArticleDto>>
+    suspend fun subscribeToNewsInserts(onInsert: (NewsArticleDto) -> Unit): Result<Unit>
+    fun unsubscribeFromNews()
 }
 
 /**

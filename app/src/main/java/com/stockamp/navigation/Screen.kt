@@ -13,4 +13,8 @@ sealed class Screen(val route: String) {
             if (entryId != null) "add_edit_journal?entryId=$entryId" else "add_edit_journal"
     }
     data object Profile : Screen("profile")
+    data object News : Screen("news?symbol={symbol}") {
+        fun createRoute(symbol: String? = null) =
+            if (symbol != null) "news?symbol=$symbol" else "news"
+    }
 }

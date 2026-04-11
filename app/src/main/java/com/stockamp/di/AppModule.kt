@@ -9,6 +9,7 @@ import com.stockamp.data.local.WatchlistDao
 import com.stockamp.data.local.SyncQueueDao
 import com.stockamp.data.local.SyncMetadataDao
 import com.stockamp.data.local.ChartDataDao
+import com.stockamp.data.local.NewsDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,7 +34,7 @@ object AppModule {
             StocKampDatabase::class.java,
             "stockamp_database"
         )
-            .addMigrations(StocKampDatabase.MIGRATION_1_2, StocKampDatabase.MIGRATION_2_3)
+            .addMigrations(StocKampDatabase.MIGRATION_1_2, StocKampDatabase.MIGRATION_2_3, StocKampDatabase.MIGRATION_3_4)
             .build()
     }
 
@@ -54,6 +55,9 @@ object AppModule {
 
     @Provides
     fun provideChartDataDao(database: StocKampDatabase): ChartDataDao = database.chartDataDao()
+
+    @Provides
+    fun provideNewsDao(database: StocKampDatabase): NewsDao = database.newsDao()
 
     @Provides
     @Singleton
