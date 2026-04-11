@@ -69,7 +69,7 @@ interface WatchlistDao {
 
 @Dao
 interface JournalDao {
-    @Query("SELECT * FROM journal_entries ORDER BY createdAt DESC")
+    @Query("SELECT * FROM journal_entries WHERE isDeleted = 0 ORDER BY createdAt DESC")
     fun getAllEntries(): Flow<List<JournalEntry>>
 
     @Query("SELECT * FROM journal_entries WHERE id = :id")

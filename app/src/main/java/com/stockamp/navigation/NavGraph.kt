@@ -10,11 +10,13 @@ import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Newspaper
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Newspaper
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,6 +36,7 @@ import com.stockamp.ui.journal.JournalScreen
 import com.stockamp.ui.main.MainViewModel
 import com.stockamp.ui.market.MarketOverviewScreen
 import com.stockamp.ui.market.StockDetailScreen
+import com.stockamp.ui.news.NewsListScreen
 import com.stockamp.ui.profile.ProfileScreen
 import com.stockamp.ui.watchlist.WatchlistScreen
 
@@ -105,6 +108,21 @@ fun StocKampNavHost(
         }
 
         composable(
+            route = Screen.News.route,
+            arguments = listOf(navArgument("symbol") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            })
+        ) { backStackEntry ->
+            val symbol = backStackEntry.arguments?.getString("symbol")
+            NewsListScreen(
+                initialSymbolFilter = symbol,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
             route = Screen.AddEditJournal.route,
             arguments = listOf(navArgument("entryId") {
                 type = NavType.StringType
@@ -126,7 +144,7 @@ fun MainScreen(navController: NavController, viewModel: MainViewModel = hiltView
     val bottomNavItems = listOf(
         BottomNavItem("Trang chủ", Icons.Filled.Home, Icons.Outlined.Home, "home"),
         BottomNavItem("Thị trường", Icons.Filled.BarChart, Icons.Outlined.BarChart, "market"),
-        BottomNavItem("Watchlist", Icons.Filled.BookmarkBorder, Icons.Outlined.BookmarkBorder, "watchlist"),
+        BottomNavItem("Tin tức", Icons.Filled.Newspaper, Icons.Outlined.Newspaper, "news_tab"),
         BottomNavItem("Nhật ký", Icons.Filled.MenuBook, Icons.Outlined.MenuBook, "journal"),
         BottomNavItem("Hồ sơ", Icons.Filled.Person, Icons.Outlined.Person, "profile"),
     )
@@ -185,6 +203,9 @@ fun MainScreen(navController: NavController, viewModel: MainViewModel = hiltView
                     },
                     onSearchClick = {
                         innerNavController.navigate("market")
+                    },
+                    onNewsClick = {
+                        innerNavController.navigate("news_tab")
                     }
                 )
             }
@@ -200,6 +221,11 @@ fun MainScreen(navController: NavController, viewModel: MainViewModel = hiltView
                     onStockClick = { symbol ->
                         navController.navigate(Screen.StockDetail.createRoute(symbol))
                     }
+                )
+            }
+            composable("news_tab") {
+                NewsListScreen(
+                    onNavigateBack = null
                 )
             }
             composable("journal") {
