@@ -28,6 +28,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stockamp.data.model.Stock
+import com.stockamp.ui.news.NewsSection
+import com.stockamp.ui.news.NewsViewModel
+import com.stockamp.ui.news.NewsUiState
 import com.stockamp.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,9 +38,12 @@ import com.stockamp.ui.theme.*
 fun HomeScreen(
     onStockClick: (String) -> Unit,
     onSearchClick: () -> Unit,
-    viewModel: HomeViewModel = hiltViewModel()
+    onNewsClick: (() -> Unit)? = null,
+    viewModel: HomeViewModel = hiltViewModel(),
+    newsViewModel: NewsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val newsUiState by newsViewModel.uiState.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -130,6 +136,19 @@ fun HomeScreen(
                 }
 
                 item { Spacer(modifier = Modifier.height(8.dp)) }
+
+                // News Section
+                item {
+                    val latestNews = (newsUiState as? NewsUiState.Success)?.latestNews ?: emptyList()
+                    val isNewsLoading = newsUiState is NewsUiState.Loading
+                    NewsSection(
+                        articles = latestNews,
+                        title = "Tin tức nổi bật",
+                        onSeeAllClick = onNewsClick,
+                        isLoading = isNewsLoading
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
             }
         }
     }

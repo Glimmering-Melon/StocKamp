@@ -5,6 +5,7 @@ package com.stockamp.data.supabase
 import android.util.Log
 import com.stockamp.BuildConfig
 import com.stockamp.data.model.JournalEntry
+import com.stockamp.data.model.NewsArticleDto
 import com.stockamp.data.model.UserProfile
 import com.stockamp.data.model.WatchlistItem
 import io.github.jan.supabase.SupabaseClient as SupabaseSDKClient
@@ -27,6 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.Serializable
@@ -80,16 +82,17 @@ class SupabaseClientImpl @Inject constructor() : SupabaseClient {
     
     override suspend fun signUp(email: String, password: String): Result<UserSession> {
         return try {
+            Log.d(TAG, "Attempting signUp for: $email")
             supabase.auth.signUpWith(io.github.jan.supabase.gotrue.providers.builtin.Email) {
                 this.email = email
                 this.password = password
             }
             val session = supabase.auth.currentSessionOrNull()
-            // Session null = Supabase đang chờ xác nhận email — không phải lỗi
+            Log.d(TAG, "SignUp done. Session: ${if (session != null) "present" else "null (email confirmation required)"}")
             session?.let { Result.success(it) }
                 ?: Result.failure(EmailConfirmationRequiredException("Email confirmation required"))
         } catch (e: Exception) {
-            Log.e(TAG, "Sign up error", e)
+            Log.e(TAG, "Sign up error: ${e.javaClass.simpleName} - ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -158,10 +161,8 @@ class SupabaseClientImpl @Inject constructor() : SupabaseClient {
     override suspend fun upsertWatchlistItem(item: WatchlistItem): Result<WatchlistItem> {
         return try {
             val dto = WatchlistItemDTO.fromWatchlistItem(item)
-            val result = supabase.from("watchlist_items")
-                .upsert(dto)
-                .decodeSingle<WatchlistItemDTO>()
-            Result.success(result.toWatchlistItem())
+            supabase.from("watchlist_items").upsert(dto)
+            Result.success(item)
         } catch (e: Exception) {
             Log.e(TAG, "Upsert watchlist item error", e)
             Result.failure(e)
@@ -206,10 +207,20 @@ class SupabaseClientImpl @Inject constructor() : SupabaseClient {
     override suspend fun upsertJournalEntry(entry: JournalEntry): Result<JournalEntry> {
         return try {
             val dto = JournalEntryDTO.fromJournalEntry(entry)
-            val result = supabase.from("journal_entries")
-                .upsert(dto)
-                .decodeSingle<JournalEntryDTO>()
-            Result.success(result.toJournalEntry())
+            Log.d(TAG, "upsertJournalEntry: id=${dto.id}, user_id='${dto.user_id}', symbol=${dto.symbol}, auth_uid=${supabase.auth.currentSessionOrNull()?.user?.id}")
+            if (dto.id == null) {
+                // Insert mới: lấy lại row vừa insert để có id từ Supabase
+                val inserted = supabase.from("journal_entries")
+                    .insert(dto) { select() }
+                    .decodeList<JournalEntryDTO>()
+                    .firstOrNull()
+                val result = inserted?.toJournalEntry() ?: entry
+                Result.success(result)
+            } else {
+                // Update: upsert bình thường
+                supabase.from("journal_entries").upsert(dto)
+                Result.success(entry)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Upsert journal entry error", e)
             Result.failure(e)
@@ -235,13 +246,15 @@ class SupabaseClientImpl @Inject constructor() : SupabaseClient {
     
     override suspend fun fetchUserProfile(userId: String): Result<UserProfile> {
         return try {
-            val profile = supabase.from("user_profiles")
+            val profiles = supabase.from("user_profiles")
                 .select {
                     filter {
                         eq("id", userId)
                     }
                 }
-                .decodeSingle<UserProfileDTO>()
+                .decodeList<UserProfileDTO>()
+            val profile = profiles.firstOrNull()
+                ?: return Result.failure(Exception("Profile not found for user: $userId"))
             Result.success(profile.toUserProfile())
         } catch (e: Exception) {
             Log.e(TAG, "Fetch user profile error", e)
@@ -251,16 +264,13 @@ class SupabaseClientImpl @Inject constructor() : SupabaseClient {
     
     override suspend fun updateUserProfile(userId: String, displayName: String): Result<UserProfile> {
         return try {
-            val profile = supabase.from("user_profiles")
+            supabase.from("user_profiles")
                 .update({
                     set("display_name", displayName)
                 }) {
-                    filter {
-                        eq("id", userId)
-                    }
+                    filter { eq("id", userId) }
                 }
-                .decodeSingle<UserProfileDTO>()
-            Result.success(profile.toUserProfile())
+            Result.success(UserProfile(id = userId, displayName = displayName))
         } catch (e: Exception) {
             Log.e(TAG, "Update user profile error", e)
             Result.failure(e)
@@ -410,7 +420,111 @@ class SupabaseClientImpl @Inject constructor() : SupabaseClient {
             }
         }
     }
-    
+
+    // ========== News Operations ==========
+
+    override suspend fun fetchNewsArticles(offset: Int, limit: Int): Result<List<NewsArticleDto>> {
+        return try {
+            Log.d(TAG, "fetchNewsArticles: offset=$offset limit=$limit")
+            val articles = supabase.from("news_articles")
+                .select {
+                    filter { eq("status", "analyzed") }
+                    order("published_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                    range(offset.toLong(), (offset + limit - 1).toLong())
+                }
+                .decodeList<NewsArticleDto>()
+            Log.d(TAG, "fetchNewsArticles: got ${articles.size} articles")
+            Result.success(articles)
+        } catch (e: Exception) {
+            Log.e(TAG, "Fetch news articles error: ${e.javaClass.simpleName} - ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun subscribeToNewsInserts(onInsert: (NewsArticleDto) -> Unit): Result<Unit> {
+        val channelKey = "news_articles_channel"
+        subscriptionJobs[channelKey]?.cancel()
+
+        val job = scope.launch {
+            try {
+                val channel = supabase.realtime.channel(channelKey)
+                val changeFlow = channel.postgresChangeFlow<PostgresAction.Insert>(schema = "public") {
+                    table = "news_articles"
+                    filter = "status=eq.analyzed"
+                }
+                channel.subscribe()
+                Log.d(TAG, "Subscribed to news_articles realtime inserts")
+
+                changeFlow.collect { action ->
+                    try {
+                        val record = action.record
+                        val dto = decodeNewsArticleDto(record)
+                        if (dto != null) onInsert(dto)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error processing news realtime event", e)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "News realtime subscription error", e)
+            }
+        }
+        subscriptionJobs[channelKey] = job
+        return Result.success(Unit)
+    }
+
+    override fun unsubscribeFromNews() {
+        val channelKey = "news_articles_channel"
+        subscriptionJobs[channelKey]?.cancel()
+        subscriptionJobs.remove(channelKey)
+        scope.launch {
+            try {
+                supabase.realtime.removeChannel(supabase.realtime.channel(channelKey))
+            } catch (e: Exception) {
+                Log.e(TAG, "Unsubscribe from news error", e)
+            }
+        }
+    }
+
+    private fun decodeNewsArticleDto(
+        record: Map<String, kotlinx.serialization.json.JsonElement>
+    ): NewsArticleDto? {
+        return try {
+            val id = record["id"]?.jsonPrimitive?.content ?: return null
+            val title = record["title"]?.jsonPrimitive?.content ?: return null
+            val url = record["url"]?.jsonPrimitive?.content ?: return null
+            val sourceName = record["source_name"]?.jsonPrimitive?.content ?: return null
+            val publishedAt = record["published_at"]?.jsonPrimitive?.content ?: return null
+            val status = record["status"]?.jsonPrimitive?.content ?: "analyzed"
+            val summary = record["summary"]?.jsonPrimitive?.contentOrNull
+            val sentimentLabel = record["sentiment_label"]?.jsonPrimitive?.contentOrNull
+            val sentimentScore = record["sentiment_score"]?.jsonPrimitive?.content?.toFloatOrNull()
+
+            val stockSymbolsElement = record["stock_symbols"]
+            val stockSymbols: List<String> = if (stockSymbolsElement != null) {
+                try {
+                    val jsonStr = stockSymbolsElement.toString()
+                    kotlinx.serialization.json.Json.decodeFromString(jsonStr)
+                } catch (e: Exception) { emptyList() }
+            } else emptyList()
+
+            NewsArticleDto(
+                id = id,
+                title = title,
+                url = url,
+                summary = summary,
+                sourceName = sourceName,
+                publishedAt = publishedAt,
+                stockSymbols = stockSymbols,
+                sentimentLabel = sentimentLabel,
+                sentimentScore = sentimentScore,
+                status = status
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to decode news realtime record", e)
+            null
+        }
+    }
+
     companion object {
         private const val TAG = "SupabaseClient"
     }
@@ -420,17 +534,20 @@ class SupabaseClientImpl @Inject constructor() : SupabaseClient {
 
 @Serializable
 private data class WatchlistItemDTO(
-    val id: Long = 0,
+    @kotlinx.serialization.SerialName("id")
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val id: Long? = null,
     val user_id: String = "",
     val symbol: String,
     val name: String,
     val added_at: Long,
     val created_at: Long? = null,
     val modified_at: Long? = null,
+    val synced_at: Long? = null,
     val is_deleted: Boolean = false
 ) {
     fun toWatchlistItem() = WatchlistItem(
-        id = id,
+        id = id ?: 0L,
         userId = user_id,
         symbol = symbol,
         name = name,
@@ -439,7 +556,7 @@ private data class WatchlistItemDTO(
     
     companion object {
         fun fromWatchlistItem(item: WatchlistItem) = WatchlistItemDTO(
-            id = item.id,
+            id = if (item.id > 0) item.id else null,
             user_id = item.userId,
             symbol = item.symbol,
             name = item.name,
@@ -450,7 +567,9 @@ private data class WatchlistItemDTO(
 
 @Serializable
 private data class JournalEntryDTO(
-    val id: Long = 0,
+    @kotlinx.serialization.SerialName("id")
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val id: Long? = null,
     val user_id: String = "",
     val symbol: String,
     val action: String,
@@ -462,10 +581,11 @@ private data class JournalEntryDTO(
     val strategy: String = "",
     val created_at: Long,
     val modified_at: Long? = null,
+    val synced_at: Long? = null,
     val is_deleted: Boolean = false
 ) {
     fun toJournalEntry() = JournalEntry(
-        id = id,
+        id = id ?: 0L,
         userId = user_id,
         symbol = symbol,
         action = action,
@@ -480,7 +600,8 @@ private data class JournalEntryDTO(
     
     companion object {
         fun fromJournalEntry(entry: JournalEntry) = JournalEntryDTO(
-            id = entry.id,
+            // Chỉ gửi id nếu là update (id > 0), insert mới thì để null để Supabase tự sinh
+            id = if (entry.id > 0) entry.id else null,
             user_id = entry.userId,
             symbol = entry.symbol,
             action = entry.action,

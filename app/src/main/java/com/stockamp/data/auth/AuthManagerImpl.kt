@@ -126,16 +126,22 @@ class AuthManagerImpl @Inject constructor(
             encryptedStorage.storeAccessToken(session.accessToken)
             session.refreshToken?.let { encryptedStorage.storeRefreshToken(it) }
 
-            // Fetch user profile
+            // Fetch user profile — nếu chưa có thì tạo local profile
             val userId = session.user?.id ?: return Result.failure(Exception("User ID not found"))
             val profileResult = supabaseClient.fetchUserProfile(userId)
 
-            if (profileResult.isFailure) {
-                Log.e(TAG, "Failed to fetch profile", profileResult.exceptionOrNull())
-                return Result.failure(profileResult.exceptionOrNull() ?: Exception("Failed to fetch profile"))
+            val profile = if (profileResult.isSuccess) {
+                profileResult.getOrThrow()
+            } else {
+                // Profile chưa tồn tại trong DB — tạo local profile từ session
+                Log.w(TAG, "Profile not found, using local profile from session")
+                val email = session.user?.email ?: ""
+                UserProfile(
+                    id = userId,
+                    email = email,
+                    displayName = email.substringBefore("@")
+                )
             }
-
-            val profile = profileResult.getOrThrow()
             _currentUser.value = profile
 
             // Trigger initial sync after successful login (Req 2.3)

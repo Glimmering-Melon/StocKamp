@@ -42,7 +42,7 @@ class FakeNetworkMonitor : NetworkMonitor {
     fun setOffline() = setStatus(ConnectivityStatus.UNAVAILABLE)
 
     override fun observeConnectivity(): Flow<ConnectivityStatus> =
-        _status.distinctUntilChanged()
+        _status
 
     override fun isOnline(): Flow<Boolean> =
         observeConnectivity().map { it == ConnectivityStatus.AVAILABLE }

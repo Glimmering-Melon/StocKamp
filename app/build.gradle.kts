@@ -122,6 +122,11 @@ dependencies {
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
 
+    // Paging 3
+    implementation("androidx.paging:paging-runtime:3.2.1")
+    implementation("androidx.paging:paging-compose:3.2.1")
+    implementation("androidx.room:room-paging:2.6.1")
+
     // Supabase
     implementation("io.github.jan-tennert.supabase:postgrest-kt:2.1.0")
     implementation("io.github.jan-tennert.supabase:gotrue-kt:2.1.0")

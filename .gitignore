@@ -93,3 +93,14 @@ lint-results.xml
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Build outputs
+build_out.txt
+build_output.txt
