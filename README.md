@@ -12,15 +12,14 @@
 * **Trading Journal / Watchlist:**
   * *Công nghệ:* Kotlin + Room Database (cache local để xem offline) + Supabase sync.
 
-#### B. Nhóm Quản lý User & Cộng đồng (Supabase gánh tốt)
+#### B. Nhóm Quản lý User & Cộng đồng 
 
 * **Auth, Watchlist, Trading Journal, Community Posting:**
   * *Công nghệ:*  **Supabase (PostgreSQL)** .
   * *Lý do:* Dữ liệu người dùng, bài đăng, comment là dạng quan hệ (Relational), Postgres xử lý cực tốt. Tính năng Realtime của Supabase giúp chat/comment nhảy ngay lập tức.
 
-#### C. Nhóm AI & Xử lý dữ liệu phức tạp (Cần Python Backend)
+#### C. Nhóm AI & Xử lý dữ liệu phức tạp 
 
-*Đây là phần Supabase không làm được (hoặc làm rất yếu). Bạn cần dựng một server riêng (ví dụ dùng FastAPI hoặc Flask).*
 
 * **News Aggregator + Sentiment Analysis:**
   * *Vấn đề:* Cần crawl tin tức từ nhiều nguồn, sau đó chạy model NLP (BERT, FinBERT) để phân tích cảm xúc (Tích cực/Tiêu cực).
@@ -36,9 +35,9 @@
 
 ---
 
-### 2. Kiến trúc Hệ thống Đề xuất (Hybrid Architecture)
+### 2. Kiến trúc Hệ thống
 
-Bạn sẽ không dùng mô hình Client-Server đơn thuần, mà là mô hình  **Microservices lai** :
+Không dùng mô hình Client-Server đơn thuần, mà là mô hình  **Microservices lai** :
 
 1. **Mobile App (Kotlin):**
    * Gọi trực tiếp **Supabase** để: Đăng nhập, Lấy Watchlist, Post bài cộng đồng, Lưu Trading Journal.
@@ -52,22 +51,8 @@ Bạn sẽ không dùng mô hình Client-Server đơn thuần, mà là mô hình
    * **Worker 2 (AI Processor):** Định kỳ chạy model Sentiment, Update Knowledge Graph, Re-train model dự báo.
    * **API Layer:** Cung cấp API cho App để chạy tính năng "What-if Simulator" (tính toán tức thì).
 
----
 
-### 3. Vấn đề "đau đầu" nhất cần lưu ý
-
-Với danh sách tính năng này, thách thức lớn nhất không phải là code App, mà là  **DỮ LIỆU (Data)** .
-
-* **Nguồn dữ liệu chứng khoán (Data Source):**
-  * Bạn lấy giá ở đâu? (Fireant, Vietstock, hay API quốc tế như Alpha Vantage?).
-  * Dữ liệu Supply Chain (Chuỗi cung ứng) lấy ở đâu để vẽ Graph? Đây là dữ liệu rất khó kiếm và đắt tiền.
-* **Chi phí Server AI:**
-  * Chạy model NLP và GNN tốn tài nguyên. Nếu deploy lên Cloud (AWS/GCP) sẽ khá tốn kém.
-  * *Tip:* Giai đoạn đầu, có thể dùng các API có sẵn (OpenAI API, Hugging Face Inference API) thay vì tự host model để tiết kiệm công sức MLOps.
-
-### 4. Lộ trình triển khai (Roadmap) gợi ý
-
-Đừng làm hết cùng lúc. Hãy chia giai đoạn:
+### 4. Lộ trình triển khai
 
 * **Giai đoạn 1 (MVP - Core):**
   * Kotlin + Supabase.
@@ -80,7 +65,5 @@ Với danh sách tính năng này, thách thức lớn nhất không phải là 
 * **Giai đoạn 3 (Advanced AI):**
   * Tích hợp GNN, Supply Chain Graph, Smart Clustering.
   * Đây là lúc bạn cần đầu tư sâu vào Data Engineering.
-
-**Kết luận:** Combo **Kotlin + Supabase + Python (FastAPI)** là "kiềng 3 chân" vững chắc nhất cho dự án này. Đừng cố nhồi nhét logic AI vào Supabase Edge Functions hay Mobile App, nó sẽ làm app bị chậm và khó bảo trì.
 
 -
