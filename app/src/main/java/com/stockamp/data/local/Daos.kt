@@ -87,9 +87,6 @@ interface JournalDao {
     @Delete
     suspend fun deleteEntry(entry: JournalEntry)
 
-    @Query("SELECT SUM(CASE WHEN action = 'BUY' THEN -totalValue ELSE totalValue END) FROM journal_entries")
-    suspend fun getTotalPnL(): Double?
-
     @Query("SELECT COUNT(*) FROM journal_entries")
     suspend fun getTotalTrades(): Int
 

@@ -13,6 +13,7 @@ import com.stockamp.data.model.SyncMetadata
 import com.stockamp.data.model.ChartDataEntity
 import com.stockamp.data.model.NewsArticleEntity
 import com.stockamp.data.model.NewsConverters
+import com.stockamp.data.model.StockSymbolCacheEntity
 
 @Database(
     entities = [
@@ -22,9 +23,10 @@ import com.stockamp.data.model.NewsConverters
         SyncQueueItem::class,
         SyncMetadata::class,
         ChartDataEntity::class,
-        NewsArticleEntity::class
+        NewsArticleEntity::class,
+        StockSymbolCacheEntity::class
     ],
-    version = 4,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(NewsConverters::class)
@@ -36,7 +38,8 @@ abstract class StocKampDatabase : RoomDatabase() {
     abstract fun syncMetadataDao(): SyncMetadataDao
     abstract fun chartDataDao(): ChartDataDao
     abstract fun newsDao(): NewsDao
-    
+    abstract fun stockSymbolCacheDao(): StockSymbolCacheDao
+
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(database: SupportSQLiteDatabase) {
@@ -144,6 +147,52 @@ abstract class StocKampDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS stock_symbol_cache (
+                        symbol TEXT PRIMARY KEY NOT NULL,
+                        name TEXT NOT NULL,
+                        exchange TEXT NOT NULL,
+                        sector TEXT,
+                        cachedAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE journal_entries_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        userId TEXT NOT NULL DEFAULT '',
+                        symbol TEXT NOT NULL,
+                        action TEXT NOT NULL,
+                        quantity INTEGER NOT NULL,
+                        transactionDate TEXT NOT NULL DEFAULT '',
+                        notes TEXT NOT NULL DEFAULT '',
+                        createdAt INTEGER NOT NULL,
+                        modifiedAt INTEGER NOT NULL DEFAULT 0,
+                        syncedAt INTEGER,
+                        isDeleted INTEGER NOT NULL DEFAULT 0
+                    )
+                """)
+                database.execSQL("""
+                    INSERT INTO journal_entries_new
+                        (id, userId, symbol, action, quantity, transactionDate, notes,
+                         createdAt, modifiedAt, syncedAt, isDeleted)
+                    SELECT id, userId, symbol, action, quantity, '', notes,
+                           createdAt, modifiedAt, syncedAt, isDeleted
+                    FROM journal_entries
+                """)
+                database.execSQL("DROP TABLE journal_entries")
+                database.execSQL("ALTER TABLE journal_entries_new RENAME TO journal_entries")
             }
         }
     }

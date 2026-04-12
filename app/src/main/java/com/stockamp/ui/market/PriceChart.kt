@@ -1,5 +1,4 @@
 package com.stockamp.ui.market
-
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas

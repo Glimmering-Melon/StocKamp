@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StocKamp Service Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+  header { background: #1e293b; border-bottom: 1px solid #334155; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 20px; font-weight: 700; color: #f8fafc; }
+  header span { font-size: 13px; color: #64748b; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; }
+  .card h2 { font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; }
+  .dot.red { background: #ef4444; }
+  .dot.yellow { background: #f59e0b; }
+  .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #1e293b; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { font-size: 13px; color: #94a3b8; }
+  .stat-value { font-size: 15px; font-weight: 600; color: #f1f5f9; }
+  .stat-value.green { color: #22c55e; }
+  .stat-value.red { color: #ef4444; }
+  .stat-value.yellow { color: #f59e0b; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .15s; }
+  .btn-primary { background: #3b82f6; color: white; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-success { background: #22c55e; color: white; }
+  .btn-success:hover { background: #16a34a; }
+  .btn-warning { background: #f59e0b; color: white; }
+  .btn-warning:hover { background: #d97706; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .log-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; font-family: 'Courier New', monospace; font-size: 12px; height: 160px; overflow-y: auto; color: #94a3b8; margin-top: 12px; }
+  .log-box .ok { color: #22c55e; }
+  .log-box .err { color: #ef4444; }
+  .log-box .info { color: #60a5fa; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3); border-top-color: white; border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: #14532d; color: #22c55e; }
+  .badge-red { background: #450a0a; color: #ef4444; }
+  .badge-yellow { background: #451a03; color: #f59e0b; }
+  .full-width { grid-column: 1 / -1; }
+  .schedule-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #334155; }
+  .schedule-row:last-child { border-bottom: none; }
+  .schedule-name { font-size: 13px; font-weight: 600; }
+  .schedule-desc { font-size: 12px; color: #64748b; margin-top: 2px; }
+  #last-refresh { font-size: 11px; color: #475569; margin-top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <div style="width:32px;height:32px;background:#3b82f6;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;">S</div>
+  <h1>StocKamp Dashboard</h1>
+  <span>Service Management</span>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+    <span class="dot" id="health-dot"></span>
+    <span id="health-text" style="font-size:12px;color:#64748b;">Đang kiểm tra...</span>
+  </div>
+</header>
+
+<div class="container">
+  <!-- Stats row -->
+  <div class="grid">
+    <!-- News Service Card -->
+    <div class="card">
+      <h2><span class="dot" id="news-dot"></span> News Service</h2>
+      <div class="stat-row">
+        <span class="stat-label">Tổng bài viết</span>
+        <span class="stat-value" id="news-total">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Đã phân tích AI</span>
+        <span class="stat-value green" id="news-analyzed">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Chờ xử lý</span>
+        <span class="stat-value yellow" id="news-pending">—</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="triggerCrawl()">
+          <span id="crawl-icon">▶</span> Crawl News
+        </button>
+        <button class="btn btn-warning" onclick="triggerProcess()">
+          <span id="process-icon">🤖</span> AI Process
+        </button>
+      </div>
+      <div class="log-box" id="news-log"><span class="info">Sẵn sàng...</span></div>
+    </div>
+
+    <!-- Market Data Card -->
+    <div class="card">
+      <h2><span class="dot" id="market-dot"></span> Market Data Service</h2>
+      <div class="stat-row">
+        <span class="stat-label">Tổng symbols</span>
+        <span class="stat-value" id="market-symbols">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Tổng OHLCV records</span>
+        <span class="stat-value green" id="market-records">—</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Lần crawl cuối</span>
+        <span class="stat-value" id="market-last-crawl" style="font-size:12px;">—</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-success" onclick="triggerMarketCrawl(false)">
+          <span id="market-icon">▶</span> Crawl (7 ngày)
+        </button>
+        <button class="btn btn-primary" onclick="triggerMarketCrawl(true)">
+          📦 Backfill (1 năm)
+        </button>
+      </div>
+      <div class="log-box" id="market-log"><span class="info">Sẵn sàng...</span></div>
+    </div>
+
+    <!-- Schedule Card -->
+    <div class="card full-width">
+      <h2>⏰ Lịch chạy tự động</h2>
+      <div class="schedule-row">
+        <div>
+          <div class="schedule-name">News Crawler</div>
+          <div class="schedule-desc">Crawl tin tức từ các nguồn VN</div>
+        </div>
+        <span class="badge badge-green">Mỗi 15 phút</span>
+      </div>
+      <div class="schedule-row">
+        <div>
+          <div class="schedule-name">AI Processor</div>
+          <div class="schedule-desc">Phân tích sentiment bằng AI</div>
+        </div>
+        <span class="badge badge-green">Mỗi 15 phút (+5 phút offset)</span>
+      </div>
+      <div class="schedule-row">
+        <div>
+          <div class="schedule-name">Market Data Crawler</div>
+          <div class="schedule-desc">Cập nhật giá OHLCV sau giờ đóng cửa</div>
+        </div>
+        <span class="badge badge-yellow">Thứ 2–6, 15:35 ICT</span>
+      </div>
+      <p id="last-refresh">Tự động refresh sau 30 giây</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const log = (boxId, msg, type='info') => {
+  const box = document.getElementById(boxId);
+  const line = document.createElement('div');
+  line.className = type;
+  line.textContent = `[${new Date().toLocaleTimeString('vi-VN')}] ${msg}`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+};
+
+const fmt = n => n != null ? n.toLocaleString('vi-VN') : '—';
+
+async function loadStats() {
+  // Health
+  try {
+    const r = await fetch('/health');
+    const ok = r.ok;
+    document.getElementById('health-dot').className = 'dot' + (ok ? '' : ' red');
+    document.getElementById('health-text').textContent = ok ? 'Online' : 'Offline';
+  } catch { 
+    document.getElementById('health-dot').className = 'dot red';
+    document.getElementById('health-text').textContent = 'Offline';
+  }
+
+  // News stats
+  try {
+    const r = await fetch('/stats');
+    const d = await r.json();
+    document.getElementById('news-total').textContent = fmt(d.total);
+    document.getElementById('news-analyzed').textContent = fmt(d.analyzed);
+    document.getElementById('news-pending').textContent = fmt(d.pending);
+    document.getElementById('news-dot').className = 'dot';
+  } catch(e) {
+    document.getElementById('news-dot').className = 'dot red';
+  }
+
+  // Market stats
+  try {
+    const r = await fetch('/market/stats');
+    const d = await r.json();
+    document.getElementById('market-symbols').textContent = fmt(d.symbols);
+    document.getElementById('market-records').textContent = fmt(d.records);
+    document.getElementById('market-last-crawl').textContent = d.last_crawled_at
+      ? new Date(d.last_crawled_at).toLocaleString('vi-VN') : '—';
+    document.getElementById('market-dot').className = 'dot';
+  } catch(e) {
+    document.getElementById('market-dot').className = 'dot red';
+  }
+
+  document.getElementById('last-refresh').textContent =
+    `Cập nhật lúc ${new Date().toLocaleTimeString('vi-VN')} · Tự động refresh sau 30 giây`;
+}
+
+async function triggerCrawl() {
+  const btn = event.target.closest('button');
+  btn.disabled = true;
+  document.getElementById('crawl-icon').innerHTML = '<span class="spinner"></span>';
+  log('news-log', 'Bắt đầu crawl news...', 'info');
+  try {
+    const r = await fetch('/crawl', { method: 'POST' });
+    const d = await r.json();
+    log('news-log', `Hoàn thành: ${JSON.stringify(d.result)}`, 'ok');
+    loadStats();
+  } catch(e) {
+    log('news-log', `Lỗi: ${e.message}`, 'err');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('crawl-icon').textContent = '▶';
+  }
+}
+
+async function triggerProcess() {
+  const btn = event.target.closest('button');
+  btn.disabled = true;
+  document.getElementById('process-icon').textContent = '⏳';
+  log('news-log', 'Bắt đầu AI processing...', 'info');
+  try {
+    const r = await fetch('/process', { method: 'POST' });
+    const d = await r.json();
+    log('news-log', `Hoàn thành: ${JSON.stringify(d.result)}`, 'ok');
+    loadStats();
+  } catch(e) {
+    log('news-log', `Lỗi: ${e.message}`, 'err');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('process-icon').textContent = '🤖';
+  }
+}
+
+async function triggerMarketCrawl(backfill) {
+  const btn = event.target.closest('button');
+  btn.disabled = true;
+  document.getElementById('market-icon').innerHTML = '<span class="spinner"></span>';
+  const mode = backfill ? 'backfill 1 năm' : '7 ngày gần nhất';
+  log('market-log', `Bắt đầu crawl market data (${mode})...`, 'info');
+  try {
+    const r = await fetch(`/market/crawl?backfill=${backfill}`, { method: 'POST' });
+    const d = await r.json();
+    if (d.status === 'started') {
+      log('market-log', `Đang chạy nền... kiểm tra lại sau vài phút`, 'info');
+      // Poll for completion
+      pollMarketStatus();
+    } else {
+      log('market-log', `Lỗi: ${JSON.stringify(d)}`, 'err');
+    }
+  } catch(e) {
+    log('market-log', `Lỗi: ${e.message}`, 'err');
+  } finally {
+    btn.disabled = false;
+    document.getElementById('market-icon').textContent = '▶';
+  }
+}
+
+async function pollMarketStatus() {
+  const poll = setInterval(async () => {
+    try {
+      const r = await fetch('/market/status');
+      const d = await r.json();
+      if (d.running) {
+        log('market-log', `Đang chạy... ${d.progress || ''}`, 'info');
+      } else {
+        clearInterval(poll);
+        log('market-log', `Hoàn thành! Records: ${fmt(d.records_upserted)}`, 'ok');
+        loadStats();
+      }
+    } catch { clearInterval(poll); }
+  }, 5000);
+}
+
+// Initial load + auto refresh
+loadStats();
+setInterval(loadStats, 30000);
+</script>
+</body>
+</html>

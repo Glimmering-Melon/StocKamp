@@ -5,9 +5,14 @@ package com.stockamp.data.supabase
 import android.util.Log
 import com.stockamp.BuildConfig
 import com.stockamp.data.model.JournalEntry
+import com.stockamp.data.model.LatestCloseResult
 import com.stockamp.data.model.NewsArticleDto
+import com.stockamp.data.model.PriceDataPoint
+import com.stockamp.data.model.StockSymbolInfo
 import com.stockamp.data.model.UserProfile
 import com.stockamp.data.model.WatchlistItem
+import java.time.LocalDate
+import java.time.ZoneOffset
 import io.github.jan.supabase.SupabaseClient as SupabaseSDKClient
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.gotrue.Auth
@@ -15,6 +20,7 @@ import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.user.UserSession
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.channel
@@ -485,6 +491,83 @@ class SupabaseClientImpl @Inject constructor() : SupabaseClient {
         }
     }
 
+    // ========== Market Data ==========
+
+    override suspend fun fetchStockPrices(symbol: String, timeframe: String): Result<List<PriceDataPoint>> {
+        return try {
+            val rows = supabase.from("stock_prices")
+                .select {
+                    filter {
+                        eq("symbol", symbol)
+                        eq("timeframe", timeframe)
+                    }
+                    order("date", Order.ASCENDING)
+                }
+                .decodeList<StockPriceDTO>()
+                .map { dto ->
+                    PriceDataPoint(
+                        timestamp = LocalDate.parse(dto.date).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+                        open = dto.open,
+                        high = dto.high,
+                        low = dto.low,
+                        close = dto.close,
+                        volume = dto.volume
+                    )
+                }
+            Result.success(rows)
+        } catch (e: Exception) {
+            Log.e(TAG, "fetchStockPrices error", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun fetchStockSymbols(): Result<List<StockSymbolInfo>> {
+        return try {
+            val rawJson = supabase.from("stock_symbols").select().data
+            Log.d(TAG, "fetchStockSymbols raw JSON (first 500): ${rawJson.take(500)}")
+            val rows = supabase.from("stock_symbols")
+                .select()
+                .decodeList<StockSymbolDTO>()
+                .map { dto ->
+                    StockSymbolInfo(
+                        symbol = dto.symbol,
+                        name = dto.name,
+                        exchange = dto.exchange,
+                        sector = dto.sector
+                    )
+                }
+            Log.d(TAG, "fetchStockSymbols: got ${rows.size} symbols")
+            Result.success(rows)
+        } catch (e: Exception) {
+            Log.e(TAG, "fetchStockSymbols error", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun fetchLatestClose(symbol: String): Result<LatestCloseResult?> {
+        return try {
+            val rows = supabase.from("stock_prices")
+                .select {
+                    filter {
+                        eq("symbol", symbol)
+                        eq("timeframe", "1D")
+                    }
+                    order("date", Order.DESCENDING)
+                    limit(1)
+                }
+                .decodeList<StockPriceDTO>()
+            val dto = rows.firstOrNull()
+            if (dto == null) {
+                Result.success(null)
+            } else {
+                Result.success(LatestCloseResult(symbol = dto.symbol, close = dto.close, date = dto.date))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "fetchLatestClose error", e)
+            Result.failure(e)
+        }
+    }
+
     private fun decodeNewsArticleDto(
         record: Map<String, kotlinx.serialization.json.JsonElement>
     ): NewsArticleDto? {
@@ -551,7 +634,11 @@ private data class WatchlistItemDTO(
         userId = user_id,
         symbol = symbol,
         name = name,
-        addedAt = added_at
+        addedAt = added_at,
+        createdAt = created_at ?: added_at,
+        modifiedAt = modified_at ?: added_at,
+        syncedAt = synced_at,
+        isDeleted = is_deleted
     )
     
     companion object {
@@ -560,7 +647,11 @@ private data class WatchlistItemDTO(
             user_id = item.userId,
             symbol = item.symbol,
             name = item.name,
-            added_at = item.addedAt
+            added_at = item.addedAt,
+            created_at = item.createdAt,
+            modified_at = item.modifiedAt,
+            synced_at = item.syncedAt,
+            is_deleted = item.isDeleted
         )
     }
 }
@@ -574,11 +665,8 @@ private data class JournalEntryDTO(
     val symbol: String,
     val action: String,
     val quantity: Int,
-    val price: Double,
-    val total_value: Double,
+    val transaction_date: String = "",
     val notes: String = "",
-    val emotion: String = "",
-    val strategy: String = "",
     val created_at: Long,
     val modified_at: Long? = null,
     val synced_at: Long? = null,
@@ -590,12 +678,12 @@ private data class JournalEntryDTO(
         symbol = symbol,
         action = action,
         quantity = quantity,
-        price = price,
-        totalValue = total_value,
+        transactionDate = transaction_date,
         notes = notes,
-        emotion = emotion,
-        strategy = strategy,
-        createdAt = created_at
+        createdAt = created_at,
+        modifiedAt = modified_at ?: created_at,
+        syncedAt = synced_at,
+        isDeleted = is_deleted
     )
     
     companion object {
@@ -606,12 +694,12 @@ private data class JournalEntryDTO(
             symbol = entry.symbol,
             action = entry.action,
             quantity = entry.quantity,
-            price = entry.price,
-            total_value = entry.totalValue,
+            transaction_date = entry.transactionDate,
             notes = entry.notes,
-            emotion = entry.emotion,
-            strategy = entry.strategy,
-            created_at = entry.createdAt
+            created_at = entry.createdAt,
+            modified_at = entry.modifiedAt,
+            synced_at = entry.syncedAt,
+            is_deleted = entry.isDeleted
         )
     }
 }
@@ -647,21 +735,39 @@ private fun Map<String, kotlinx.serialization.json.JsonElement>.toWatchlistItem(
 }
 
 private fun Map<String, kotlinx.serialization.json.JsonElement>.toJournalEntry(): JournalEntry {
-    val quantity = this["quantity"]?.jsonPrimitive?.intOrNull ?: 0
-    val price = this["price"]?.jsonPrimitive?.doubleOrNull ?: 0.0
     return JournalEntry(
         id = this["id"]?.jsonPrimitive?.longOrNull ?: 0L,
         userId = this["user_id"]?.jsonPrimitive?.content ?: "",
         symbol = this["symbol"]?.jsonPrimitive?.content ?: "",
         action = this["action"]?.jsonPrimitive?.content ?: "",
-        quantity = quantity,
-        price = price,
-        totalValue = this["total_value"]?.jsonPrimitive?.doubleOrNull ?: (quantity * price),
+        quantity = this["quantity"]?.jsonPrimitive?.intOrNull ?: 0,
+        transactionDate = this["transaction_date"]?.jsonPrimitive?.contentOrNull ?: "",
         notes = this["notes"]?.jsonPrimitive?.content ?: "",
-        emotion = this["emotion"]?.jsonPrimitive?.content ?: "",
-        strategy = this["strategy"]?.jsonPrimitive?.content ?: "",
         createdAt = this["created_at"]?.jsonPrimitive?.longOrNull ?: System.currentTimeMillis(),
         modifiedAt = this["modified_at"]?.jsonPrimitive?.longOrNull ?: System.currentTimeMillis(),
+        syncedAt = this["synced_at"]?.jsonPrimitive?.longOrNull,
         isDeleted = this["is_deleted"]?.jsonPrimitive?.booleanOrNull ?: false
     )
 }
+
+@Serializable
+private data class StockPriceDTO(
+    val symbol: String,
+    val date: String,
+    val timeframe: String,
+    val open: Double,
+    val high: Double,
+    val low: Double,
+    val close: Double,
+    val volume: Long,
+    val updated_at: String? = null
+)
+
+@Serializable
+private data class StockSymbolDTO(
+    val symbol: String,
+    val name: String,
+    val exchange: String,
+    val sector: String? = null,
+    val is_active: Boolean = true
+)

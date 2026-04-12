@@ -371,8 +371,6 @@ class SyncErrorScenarioTest {
         symbol = "AAPL",
         action = "BUY",
         quantity = 10,
-        price = 150.0,
-        totalValue = 1500.0,
         notes = "test entry $id",
         createdAt = 1_000_000L,
         modifiedAt = 1_000_000L,

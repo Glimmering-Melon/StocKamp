@@ -1,0 +1,4 @@
+# file: C:\Users\ASUS\AndroidStudioProjects\StocKamp\market_data_service\scheduler\main.py
+# hypothesis_version: 6.151.12
+
+[365, '%Y-%m-%d %H:%M %Z', '--backfill', '--force', '1D', '1M', '1W', 'Crawl started at %s', 'Upserted %d symbols', '__main__', 'store_true']

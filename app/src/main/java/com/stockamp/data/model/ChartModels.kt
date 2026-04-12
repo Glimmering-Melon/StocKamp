@@ -41,7 +41,8 @@ sealed class ChartUiState {
         val chartType: ChartType,
         val timeframe: Timeframe,
         val indicators: Map<TechnicalIndicator, List<Double?>>,
-        val visibleIndicators: Set<TechnicalIndicator>
+        val visibleIndicators: Set<TechnicalIndicator>,
+        val lastUpdatedDate: String? = null
     ) : ChartUiState()
     data class Error(val message: String) : ChartUiState()
 }
