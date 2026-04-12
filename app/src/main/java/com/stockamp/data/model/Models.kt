@@ -55,20 +55,14 @@ data class WatchlistItem(
 @Serializable
 @Entity(tableName = "journal_entries")
 data class JournalEntry(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val userId: String = "",
     val symbol: String,
-    val action: String, // "BUY" or "SELL"
+    val action: String,       // "BUY" | "SELL"
     val quantity: Int,
-    val price: Double,
-    val totalValue: Double = quantity * price,
+    val transactionDate: String = "",  // "YYYY-MM-DD"
     val notes: String = "",
-    val emotion: String = "", // "confident", "nervous", "neutral"
-    val strategy: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    
-    // Sync fields
     val modifiedAt: Long = System.currentTimeMillis(),
     val syncedAt: Long? = null,
     val isDeleted: Boolean = false

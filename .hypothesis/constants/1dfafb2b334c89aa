@@ -1,0 +1,4 @@
+# file: C:\Users\ASUS\AndroidStudioProjects\StocKamp\market_data_service\writer\supabase_writer.py
+# hypothesis_version: 6.151.12
+
+[500, 'close', 'crawl_metadata', 'date', 'end_time', 'exchange', 'high', 'is_active', 'key', 'last_crawled_at', 'last_run_stats', 'low', 'name', 'open', 'records_upserted', 'sector', 'start_time', 'stock_prices', 'stock_symbols', 'symbol', 'symbols_attempted', 'symbols_failed', 'symbols_succeeded', 'timeframe', 'value', 'volume']

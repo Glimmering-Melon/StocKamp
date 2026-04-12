@@ -1,12 +1,12 @@
 package com.stockamp.ui.market
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.fadeIn
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -14,6 +14,7 @@ import com.stockamp.data.model.ChartType
 import com.stockamp.data.model.ChartUiState
 import com.stockamp.data.model.TechnicalIndicator
 import com.stockamp.data.model.Timeframe
+
 @Composable
 fun ChartComponent(
     chartState: ChartUiState,
@@ -23,14 +24,37 @@ fun ChartComponent(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // 1. TẠO TRÍ NHỚ CHO GIAO DIỆN ĐỂ KHÔNG BỊ NHẢY NÚT
+    var selectedTimeframe by remember { mutableStateOf(Timeframe.ONE_DAY) }
+
+    // Đồng bộ lại nếu ViewModel có dữ liệu mới
+    LaunchedEffect(chartState) {
+        if (chartState is ChartUiState.Success) {
+            selectedTimeframe = chartState.timeframe
+        }
+    }
+
     Column(modifier = modifier.fillMaxWidth()) {
         // Timeframe selector row
         TimeframeSelector(
-            selected = if (chartState is ChartUiState.Success) chartState.timeframe else Timeframe.ONE_MONTH,
-            onSelected = onTimeframeSelected
+            selected = selectedTimeframe,
+            onSelected = { tf ->
+                selectedTimeframe = tf // Cập nhật nút sáng đèn ngay lập tức
+                onTimeframeSelected(tf) // Gọi API
+            }
         )
 
         Spacer(modifier = Modifier.height(8.dp))
+
+        // Last updated date display
+        if (chartState is ChartUiState.Success && chartState.lastUpdatedDate != null) {
+            Text(
+                text = "Cập nhật: ${chartState.lastUpdatedDate}",
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+        }
 
         // Chart type toggle + indicator toggles
         if (chartState is ChartUiState.Success) {
@@ -68,7 +92,14 @@ fun ChartComponent(
                         contentAlignment = Alignment.Center
                     ) { CircularProgressIndicator() }
                     is ChartUiState.Error -> ChartErrorView(message = state.message, onRetry = onRetry)
-                    is ChartUiState.Success -> ChartDisplayArea(state = state)
+                    is ChartUiState.Success -> if (state.priceData.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) { Text("Chưa có dữ liệu") }
+                    } else {
+                        ChartDisplayArea(state = state)
+                    }
                 }
             }
         }
@@ -81,16 +112,18 @@ fun TimeframeSelector(
     onSelected: (Timeframe) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
+    val timeframes = listOf(Timeframe.ONE_DAY, Timeframe.ONE_WEEK, Timeframe.ONE_MONTH)
+    // Dùng LazyRow để các nút không bị ép chèn lên nhau
+    LazyRow(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Timeframe.entries.forEach { tf ->
+        items(timeframes) { tf ->
             val isSelected = tf == selected
             FilterChip(
                 selected = isSelected,
                 onClick = { onSelected(tf) },
-                label = { Text(tf.apiValue) }
+                label = { Text(tf.apiValue) } // Hiện chữ 1D, 1M, 1Y...
             )
         }
     }
@@ -103,7 +136,7 @@ fun ChartTypeToggle(
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier,
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -126,17 +159,18 @@ fun ChartErrorView(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier,
+        modifier = modifier.padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.error
+            color = MaterialTheme.colorScheme.error,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(onClick = onRetry) { Text("Retry") }
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = onRetry) { Text("Thử lại") }
     }
 }
 
@@ -154,8 +188,8 @@ fun IndicatorToggles(
     onToggle: (TechnicalIndicator) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        TechnicalIndicator.entries.forEach { indicator ->
+    LazyRow(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        items(TechnicalIndicator.entries.toTypedArray()) { indicator ->
             FilterChip(
                 selected = indicator in visibleIndicators,
                 onClick = { onToggle(indicator) },

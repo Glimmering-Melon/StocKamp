@@ -213,6 +213,11 @@ fun MainScreen(navController: NavController, viewModel: MainViewModel = hiltView
                 MarketOverviewScreen(
                     onStockClick = { symbol ->
                         navController.navigate(Screen.StockDetail.createRoute(symbol))
+                    },
+                    onWatchlistClick = {
+                        innerNavController.navigate("watchlist") {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }

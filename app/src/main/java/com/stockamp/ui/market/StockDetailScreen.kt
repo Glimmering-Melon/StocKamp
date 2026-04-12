@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.stockamp.data.model.ChartUiState
 import com.stockamp.data.model.StockPrice
 import com.stockamp.ui.theme.*
 
@@ -29,19 +30,20 @@ import com.stockamp.ui.theme.*
 fun StockDetailScreen(
     symbol: String,
     onNavigateBack: () -> Unit,
-    viewModel: StockDetailViewModel = hiltViewModel(),
-    chartViewModel: ChartViewModel = hiltViewModel()
+    viewModel: StockDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val chartState by chartViewModel.chartState.collectAsStateWithLifecycle()
+    val chartState by viewModel.chartState.collectAsStateWithLifecycle()
 
     LaunchedEffect(symbol) {
-        viewModel.loadStock(symbol)
-        chartViewModel.loadChartData(symbol)
+        viewModel.loadChartData(symbol)
     }
 
-    val stock = uiState.stock
-    val isPositive = stock != null && stock.change >= 0
+    val isChartLoading = chartState is ChartUiState.Loading
+    val isChartError = chartState is ChartUiState.Error
+
+    val changePercent = uiState.changePercent
+    val isPositive = changePercent != null && changePercent >= 0
 
     Scaffold(
         topBar = {
@@ -58,7 +60,7 @@ fun StockDetailScreen(
                     IconButton(onClick = { viewModel.toggleWatchlist() }) {
                         Icon(
                             if (uiState.isInWatchlist) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                            contentDescription = "Watchlist",
+                            contentDescription = if (uiState.isInWatchlist) "Đã theo dõi" else "Thêm vào danh sách theo dõi",
                             tint = if (uiState.isInWatchlist) AccentYellow else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -69,46 +71,46 @@ fun StockDetailScreen(
             )
         }
     ) { padding ->
-        if (uiState.isLoading || stock == null) {
-            Box(
-                modifier = Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp)
-            ) {
-                // Stock Info Header
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Company name
+            Text(
+                text = uiState.symbolInfo?.name ?: symbol,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Price
+            Row(verticalAlignment = Alignment.Bottom) {
+                val priceText = uiState.latestClose?.close?.let {
+                    String.format("%,.0f", it)
+                } ?: "--"
                 Text(
-                    stock.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = priceText,
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    "VND",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+            }
 
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        String.format("%,.0f", stock.currentPrice),
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        "VNĐ",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
-                }
+            Spacer(modifier = Modifier.height(4.dp))
 
-                Spacer(modifier = Modifier.height(4.dp))
-
+            // Change percent
+            if (changePercent != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         if (isPositive) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
@@ -118,65 +120,119 @@ fun StockDetailScreen(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        "${if (isPositive) "+" else ""}${String.format("%,.0f", stock.change)} (${String.format("%.2f", stock.changePercent)}%)",
+                        text = "${if (isPositive) "+" else ""}${String.format("%.2f", changePercent)}%",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = if (isPositive) AccentGreen else AccentRed
                     )
                 }
+            }
 
-                Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                // Interactive Price Chart
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    ChartComponent(
-                        chartState = chartState,
-                        onTimeframeSelected = { chartViewModel.updateTimeframe(it) },
-                        onChartTypeToggled = { chartViewModel.toggleChartType(it) },
-                        onIndicatorToggled = { chartViewModel.toggleIndicator(it) },
-                        onRetry = { chartViewModel.retryLoad() },
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Key Stats
+            // Watchlist button
+            OutlinedButton(
+                onClick = { viewModel.toggleWatchlist() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    if (uiState.isInWatchlist) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    "Thông tin chi tiết",
+                    text = if (uiState.isInWatchlist) "Đã theo dõi" else "Thêm vào danh sách theo dõi"
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Chart card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                when {
+                    isChartLoading -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    isChartError -> {
+                        val errorMsg = (chartState as ChartUiState.Error).message
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = errorMsg,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(onClick = { viewModel.retryLoad() }) {
+                                Text("Thử lại")
+                            }
+                        }
+                    }
+                    else -> {
+                        ChartComponent(
+                            chartState = chartState,
+                            onTimeframeSelected = { viewModel.updateTimeframe(it) },
+                            onChartTypeToggled = { viewModel.toggleChartType(it) },
+                            onIndicatorToggled = { viewModel.toggleIndicator(it) },
+                            onRetry = { viewModel.retryLoad() },
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Symbol info details
+            uiState.symbolInfo?.let { info ->
+                Text(
+                    "Thông tin cổ phiếu",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        StatRow("Sàn", stock.exchange)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        StatRow("Ngành", stock.sector)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        StatRow("Khối lượng", String.format("%,d", stock.volume))
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        StatRow("Vốn hóa", formatMarketCap(stock.marketCap))
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        StatRow("Đỉnh 52 tuần", String.format("%,.0f", stock.high52Week))
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        StatRow("Đáy 52 tuần", String.format("%,.0f", stock.low52Week))
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                        StatRow("Giá đóng cửa trước", String.format("%,.0f", stock.previousClose))
+                        StatRow("Sàn giao dịch", info.exchange)
+                        if (info.sector != null) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                            )
+                            StatRow("Ngành", info.sector)
+                        }
+                        uiState.latestClose?.let { close ->
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                            )
+                            StatRow("Ngày cập nhật", close.date)
+                        }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(32.dp))
             }
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
@@ -203,7 +259,6 @@ fun StockChart(
         val height = size.height
         val stepX = width / (closePrices.size - 1).coerceAtLeast(1)
 
-        // Draw line
         val linePath = Path()
         val fillPath = Path()
 
@@ -221,21 +276,12 @@ fun StockChart(
             }
         }
 
-        // Complete fill path
         fillPath.lineTo(width, height)
         fillPath.close()
 
-        // Draw fill
         drawPath(path = fillPath, brush = fillColor)
+        drawPath(path = linePath, color = lineColor, style = Stroke(width = 3f, cap = StrokeCap.Round))
 
-        // Draw line
-        drawPath(
-            path = linePath,
-            color = lineColor,
-            style = Stroke(width = 3f, cap = StrokeCap.Round)
-        )
-
-        // Draw dot at last point
         val lastX = (closePrices.size - 1) * stepX
         val lastY = height - ((closePrices.last() - minPrice) / priceRange * height)
         drawCircle(color = lineColor, radius = 6f, center = Offset(lastX, lastY))
@@ -259,14 +305,5 @@ private fun StatRow(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold
         )
-    }
-}
-
-private fun formatMarketCap(value: Long): String {
-    return when {
-        value >= 1_000_000_000_000 -> String.format("%.1fT", value / 1_000_000_000_000.0)
-        value >= 1_000_000_000 -> String.format("%.1fB", value / 1_000_000_000.0)
-        value >= 1_000_000 -> String.format("%.1fM", value / 1_000_000.0)
-        else -> String.format("%,d", value)
     }
 }
