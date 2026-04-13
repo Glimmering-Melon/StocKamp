@@ -2,12 +2,16 @@ package com.stockamp.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.stockamp.data.model.Stock
+import com.stockamp.data.local.WatchlistDao
+import com.stockamp.data.market.MarketRepository
 import com.stockamp.data.model.WatchlistItem
-import com.stockamp.data.repository.StockRepository
-import com.stockamp.data.repository.WatchlistRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -19,67 +23,118 @@ data class MarketIndex(
     val sparkline: List<Double> = emptyList()
 )
 
+data class WatchlistMarketRow(
+    val item: WatchlistItem,
+    val sparklineCloses: List<Double>,   // close values from last 7 days of 1D OHLCV
+    val latestClose: Double?,            // null if unavailable
+    val changePercent: Double?           // null if unavailable
+)
+
 data class HomeUiState(
     val indices: List<MarketIndex> = emptyList(),
-    val watchlistStocks: List<Stock> = emptyList(),
-    val isLoading: Boolean = true
+    val watchlistRows: List<WatchlistMarketRow> = emptyList(),
+    val isWatchlistLoading: Boolean = true,
+    val watchlistError: String? = null
 )
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val stockRepository: StockRepository,
-    private val watchlistRepository: WatchlistRepository
+    private val watchlistDao: WatchlistDao,
+    private val marketRepository: MarketRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
+        loadIndices()
+        loadWatchlist()
+    }
+
+    private fun loadIndices() {
+        val indices = listOf(
+            MarketIndex(
+                name = "VN-Index",
+                value = 1287.45,
+                change = 12.34,
+                changePercent = 0.97,
+                sparkline = listOf(1265.0, 1270.0, 1268.0, 1275.0, 1272.0, 1280.0, 1285.0, 1287.45)
+            ),
+            MarketIndex(
+                name = "HNX-Index",
+                value = 234.56,
+                change = -1.23,
+                changePercent = -0.52,
+                sparkline = listOf(238.0, 237.0, 236.5, 235.8, 236.2, 235.0, 234.8, 234.56)
+            ),
+            MarketIndex(
+                name = "UPCOM",
+                value = 98.12,
+                change = 0.45,
+                changePercent = 0.46,
+                sparkline = listOf(97.0, 97.3, 97.5, 97.8, 97.6, 97.9, 98.0, 98.12)
+            )
+        )
+        _uiState.update { it.copy(indices = indices) }
+    }
+
+    private fun loadWatchlist() {
         viewModelScope.launch {
-            stockRepository.loadSampleData()
-            loadData()
+            _uiState.update { it.copy(isWatchlistLoading = true, watchlistError = null) }
+            try {
+                // Collect first emission and take top 2 items (already ordered by addedAt DESC)
+                val items = watchlistDao.getAllWatchlistItems().first().take(2)
+
+                // Launch parallel coroutines for each item
+                val rows = items.map { item ->
+                    async { buildRow(item) }
+                }.map { it.await() }
+
+                _uiState.update { it.copy(watchlistRows = rows, isWatchlistLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isWatchlistLoading = false,
+                        watchlistError = e.message ?: "Unknown error"
+                    )
+                }
+            }
         }
     }
 
-    private fun loadData() {
-        viewModelScope.launch {
-            // Sample market indices
-            val indices = listOf(
-                MarketIndex(
-                    name = "S&P 500",
-                    value = 5248.49,
-                    change = 44.91,
-                    changePercent = 0.86,
-                    sparkline = listOf(5180.0, 5195.0, 5210.0, 5205.0, 5225.0, 5240.0, 5235.0, 5248.49)
-                ),
-                MarketIndex(
-                    name = "NASDAQ",
-                    value = 16399.52,
-                    change = -23.87,
-                    changePercent = -0.15,
-                    sparkline = listOf(16450.0, 16440.0, 16420.0, 16430.0, 16410.0, 16405.0, 16400.0, 16399.52)
-                ),
-                MarketIndex(
-                    name = "DOW 30",
-                    value = 39807.37,
-                    change = 47.29,
-                    changePercent = 0.12,
-                    sparkline = listOf(39700.0, 39720.0, 39750.0, 39780.0, 39760.0, 39790.0, 39800.0, 39807.37)
-                )
-            )
-            _uiState.update { it.copy(indices = indices) }
+    private suspend fun buildRow(item: WatchlistItem): WatchlistMarketRow {
+        val symbol = item.symbol
 
-            // Load watchlist stocks
-            watchlistRepository.getAllWatchlistItems().collect { items ->
-                val symbols = items.map { it.symbol }
-                val stocks = if (symbols.isEmpty()) {
-                    // Show top stocks if watchlist empty
-                    stockRepository.getAllStocks().first().take(5)
-                } else {
-                    symbols.mapNotNull { stockRepository.getStockBySymbol(it) }
-                }
-                _uiState.update { it.copy(watchlistStocks = stocks, isLoading = false) }
-            }
+        // Launch OHLCV and latestClose in parallel
+        val ohlcvDeferred = viewModelScope.async {
+            marketRepository.getOhlcv(symbol, "1D")
         }
+        val latestCloseDeferred = viewModelScope.async {
+            marketRepository.getLatestClose(symbol)
+        }
+
+        val ohlcvResult = ohlcvDeferred.await()
+        val latestCloseResult = latestCloseDeferred.await()
+
+        // Extract sparkline closes; empty list on failure
+        val sparklineCloses = ohlcvResult.getOrNull()?.map { it.close } ?: emptyList()
+
+        // Extract latestClose value; null on failure or null result
+        val latestClose = latestCloseResult.getOrNull()?.close
+
+        // Compute changePercent using second-to-last close as previousClose
+        val changePercent = if (latestClose != null && sparklineCloses.size >= 2) {
+            val previousClose = sparklineCloses[sparklineCloses.size - 2]
+            if (previousClose != 0.0) {
+                (latestClose - previousClose) / previousClose * 100
+            } else null
+        } else null
+
+        return WatchlistMarketRow(
+            item = item,
+            sparklineCloses = sparklineCloses,
+            latestClose = latestClose,
+            changePercent = changePercent
+        )
     }
 }

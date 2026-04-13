@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.stockamp.data.model.Stock
 import com.stockamp.ui.news.NewsSection
 import com.stockamp.ui.news.NewsViewModel
 import com.stockamp.ui.news.NewsUiState
@@ -89,7 +88,7 @@ fun HomeScreen(
             }
         }
 
-        if (uiState.isLoading) {
+        if (uiState.isWatchlistLoading && uiState.indices.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
@@ -128,10 +127,10 @@ fun HomeScreen(
                 }
 
                 // Watchlist rows
-                items(uiState.watchlistStocks, key = { it.symbol }) { stock ->
+                items(uiState.watchlistRows, key = { it.item.symbol }) { row ->
                     WatchlistRow(
-                        stock = stock,
-                        onClick = { onStockClick(stock.symbol) }
+                        row = row,
+                        onClick = { onStockClick(row.item.symbol) }
                     )
                 }
 
@@ -250,8 +249,8 @@ fun MiniSparkline(
 }
 
 @Composable
-fun WatchlistRow(stock: Stock, onClick: () -> Unit) {
-    val isPositive = stock.change >= 0
+fun WatchlistRow(row: WatchlistMarketRow, onClick: () -> Unit) {
+    val isPositive = (row.changePercent ?: 0.0) >= 0
     val trendColor = if (isPositive) AccentGreen else AccentRed
 
     Row(
@@ -270,7 +269,7 @@ fun WatchlistRow(stock: Stock, onClick: () -> Unit) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = stock.symbol.take(4),
+                text = row.item.symbol.take(3),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = trendColor
@@ -282,12 +281,12 @@ fun WatchlistRow(stock: Stock, onClick: () -> Unit) {
         // Name
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = stock.symbol,
+                text = row.item.symbol,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = stock.name,
+                text = row.item.name,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
@@ -295,12 +294,8 @@ fun WatchlistRow(stock: Stock, onClick: () -> Unit) {
         }
 
         // Mini sparkline
-        val sparkData = remember(stock.symbol) {
-            com.stockamp.data.sample.SampleData.generatePriceHistory(stock.symbol, 7)
-                .map { it.close }
-        }
         MiniSparkline(
-            data = sparkData,
+            data = row.sparklineCloses,
             color = trendColor,
             modifier = Modifier
                 .width(56.dp)
@@ -312,15 +307,17 @@ fun WatchlistRow(stock: Stock, onClick: () -> Unit) {
         // Price & change
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = "$${String.format("%.2f", stock.currentPrice)}",
+                text = if (row.latestClose != null) String.format("%,.0f", row.latestClose) else "--",
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "${if (isPositive) "+" else ""}${String.format("%.2f", stock.changePercent)}%",
+                text = if (row.changePercent != null)
+                    "${if (isPositive) "+" else ""}${String.format("%.2f", row.changePercent)}%"
+                else "--",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = trendColor
+                color = if (row.changePercent != null) trendColor else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

@@ -99,11 +99,6 @@ private class FakeJournalDao : com.stockamp.data.local.JournalDao {
         entries.removeAll { it.id == entry.id }
     }
 
-    override suspend fun getTotalPnL() =
-        entries.filter { !it.isDeleted }.sumOf {
-            if (it.action == "BUY") -it.totalValue else it.totalValue
-        }
-
     override suspend fun getTotalTrades() =
         entries.count { !it.isDeleted }
 
@@ -185,7 +180,7 @@ class OfflineAccessTest {
 
     @Test
     fun `journal - add entry is readable offline`() = runTest {
-        val entry = JournalEntry(symbol = "AAPL", action = "BUY", quantity = 10, price = 150.0)
+        val entry = JournalEntry(symbol = "AAPL", action = "BUY", quantity = 10)
         val id = journalRepo.addEntry(entry)
 
         val fetched = journalRepo.getEntryById(id)
@@ -195,7 +190,7 @@ class OfflineAccessTest {
 
     @Test
     fun `journal - update entry persists changes offline`() = runTest {
-        val entry = JournalEntry(symbol = "TSLA", action = "BUY", quantity = 5, price = 200.0)
+        val entry = JournalEntry(symbol = "TSLA", action = "BUY", quantity = 5)
         val id = journalRepo.addEntry(entry)
 
         val updated = entry.copy(id = id, notes = "Updated note")
@@ -207,7 +202,7 @@ class OfflineAccessTest {
 
     @Test
     fun `journal - delete entry removes it offline`() = runTest {
-        val entry = JournalEntry(symbol = "MSFT", action = "SELL", quantity = 3, price = 300.0)
+        val entry = JournalEntry(symbol = "MSFT", action = "SELL", quantity = 3)
         val id = journalRepo.addEntry(entry)
         val stored = journalRepo.getEntryById(id)!!
 
@@ -218,8 +213,8 @@ class OfflineAccessTest {
 
     @Test
     fun `journal - getAllEntries returns all non-deleted entries`() = runTest {
-        journalRepo.addEntry(JournalEntry(symbol = "AAPL", action = "BUY", quantity = 1, price = 100.0))
-        journalRepo.addEntry(JournalEntry(symbol = "GOOG", action = "SELL", quantity = 2, price = 200.0))
+        journalRepo.addEntry(JournalEntry(symbol = "AAPL", action = "BUY", quantity = 1))
+        journalRepo.addEntry(JournalEntry(symbol = "GOOG", action = "SELL", quantity = 2))
 
         val entries = journalRepo.getAllEntries().first()
         assertEquals(2, entries.size)
@@ -227,8 +222,8 @@ class OfflineAccessTest {
 
     @Test
     fun `journal - getEntriesBySymbol filters correctly offline`() = runTest {
-        journalRepo.addEntry(JournalEntry(symbol = "AAPL", action = "BUY", quantity = 1, price = 100.0))
-        journalRepo.addEntry(JournalEntry(symbol = "MSFT", action = "BUY", quantity = 2, price = 200.0))
+        journalRepo.addEntry(JournalEntry(symbol = "AAPL", action = "BUY", quantity = 1))
+        journalRepo.addEntry(JournalEntry(symbol = "MSFT", action = "BUY", quantity = 2))
 
         val appleEntries = journalRepo.getEntriesBySymbol("AAPL").first()
         assertEquals(1, appleEntries.size)
@@ -243,8 +238,8 @@ class OfflineAccessTest {
 
     @Test
     fun `journal - getTotalTrades counts correctly offline`() = runTest {
-        journalRepo.addEntry(JournalEntry(symbol = "AAPL", action = "BUY", quantity = 1, price = 100.0))
-        journalRepo.addEntry(JournalEntry(symbol = "MSFT", action = "SELL", quantity = 1, price = 200.0))
+        journalRepo.addEntry(JournalEntry(symbol = "AAPL", action = "BUY", quantity = 1))
+        journalRepo.addEntry(JournalEntry(symbol = "MSFT", action = "SELL", quantity = 1))
 
         assertEquals(2, journalRepo.getTotalTrades())
     }
@@ -300,7 +295,6 @@ class OfflineAccessPropertyTest {
                 symbol = "SYM${seed % 100}",
                 action = if (seed % 2 == 0L) "BUY" else "SELL",
                 quantity = ((seed % 50) + 1).toInt(),
-                price = 10.0 + (seed % 990),
                 notes = "note $seed",
                 createdAt = System.currentTimeMillis(),
                 modifiedAt = System.currentTimeMillis()
@@ -463,8 +457,7 @@ class OfflineAccessPropertyTest {
                     JournalEntry(
                         symbol = "J$i",
                         action = "BUY",
-                        quantity = i,
-                        price = i * 10.0
+                        quantity = i
                     )
                 )
             }

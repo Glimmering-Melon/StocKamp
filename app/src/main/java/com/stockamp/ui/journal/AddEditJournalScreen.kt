@@ -1,6 +1,6 @@
 package com.stockamp.ui.journal
 
-import androidx.compose.foundation.background
+import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,81 +12,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.stockamp.data.model.JournalEntry
-import com.stockamp.data.repository.JournalRepository
-import com.stockamp.data.sync.SyncEngine
 import com.stockamp.ui.theme.*
-import dagger.hilt.android.lifecycle.HiltViewModel
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.firstOrNull
-import javax.inject.Inject
-
-@HiltViewModel
-class AddEditJournalViewModel @Inject constructor(
-    private val journalRepository: JournalRepository,
-    private val syncEngine: SyncEngine,
-    private val authManager: com.stockamp.data.auth.AuthManager
-) : ViewModel() {
-
-    var entry by mutableStateOf<JournalEntry?>(null)
-        private set
-
-    fun loadEntry(id: Long?) {
-        if (id == null) return
-        viewModelScope.launch {
-            entry = journalRepository.getEntryById(id)
-        }
-    }
-
-    fun saveEntry(
-        symbol: String,
-        action: String,
-        quantity: Int,
-        price: Double,
-        notes: String,
-        emotion: String,
-        strategy: String,
-        onSuccess: () -> Unit
-    ) {
-        viewModelScope.launch {
-            val userId = authManager.getCurrentUser().firstOrNull()?.id ?: ""
-            val newEntry = JournalEntry(
-                id = entry?.id ?: 0,
-                userId = if (entry != null) (entry!!.userId.ifBlank { userId }) else userId,
-                symbol = symbol.uppercase(),
-                action = action,
-                quantity = quantity,
-                price = price,
-                totalValue = quantity * price,
-                notes = notes,
-                emotion = emotion,
-                strategy = strategy
-            )
-            if (entry != null) {
-                journalRepository.updateEntry(newEntry)
-            } else {
-                journalRepository.addEntry(newEntry)
-            }
-            syncEngine.syncJournal()
-            onSuccess()
-        }
-    }
-
-    fun deleteEntry(onSuccess: () -> Unit) {
-        val current = entry ?: return
-        viewModelScope.launch {
-            journalRepository.deleteEntry(current)
-            syncEngine.syncJournal()
-            onSuccess()
-        }
-    }
-}
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,17 +30,12 @@ fun AddEditJournalScreen(
     viewModel: AddEditJournalViewModel = hiltViewModel()
 ) {
     LaunchedEffect(entryId) {
-        viewModel.loadEntry(entryId)
+        if (entryId != null) {
+            viewModel.loadEntry(entryId)
+        }
     }
 
-    val existingEntry = viewModel.entry
-    var symbol by remember(existingEntry) { mutableStateOf(existingEntry?.symbol ?: "") }
-    var action by remember(existingEntry) { mutableStateOf(existingEntry?.action ?: "BUY") }
-    var quantity by remember(existingEntry) { mutableStateOf(existingEntry?.quantity?.toString() ?: "") }
-    var price by remember(existingEntry) { mutableStateOf(existingEntry?.price?.toString() ?: "") }
-    var notes by remember(existingEntry) { mutableStateOf(existingEntry?.notes ?: "") }
-    var emotion by remember(existingEntry) { mutableStateOf(existingEntry?.emotion ?: "neutral") }
-    var strategy by remember(existingEntry) { mutableStateOf(existingEntry?.strategy ?: "") }
+    val uiState by viewModel.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     if (showDeleteDialog) {
@@ -169,14 +98,20 @@ fun AddEditJournalScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             // Action Toggle
-            Text("Trade Type", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Loại giao dịch",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold
+            )
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 FilterChip(
-                    selected = action == "BUY",
-                    onClick = { action = "BUY" },
-                    label = { Text("BUY", fontWeight = FontWeight.SemiBold) },
-                    leadingIcon = if (action == "BUY") {{ Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }} else null,
+                    selected = uiState.action == "BUY",
+                    onClick = { viewModel.onActionChanged("BUY") },
+                    label = { Text("MUA (BUY)", fontWeight = FontWeight.SemiBold) },
+                    leadingIcon = if (uiState.action == "BUY") {
+                        { Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
+                    } else null,
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = AccentGreen.copy(alpha = 0.15f),
                         selectedLabelColor = AccentGreen
@@ -184,10 +119,12 @@ fun AddEditJournalScreen(
                     shape = RoundedCornerShape(12.dp)
                 )
                 FilterChip(
-                    selected = action == "SELL",
-                    onClick = { action = "SELL" },
-                    label = { Text("SELL", fontWeight = FontWeight.SemiBold) },
-                    leadingIcon = if (action == "SELL") {{ Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }} else null,
+                    selected = uiState.action == "SELL",
+                    onClick = { viewModel.onActionChanged("SELL") },
+                    label = { Text("BÁN (SELL)", fontWeight = FontWeight.SemiBold) },
+                    leadingIcon = if (uiState.action == "SELL") {
+                        { Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
+                    } else null,
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = AccentRed.copy(alpha = 0.15f),
                         selectedLabelColor = AccentRed
@@ -198,133 +135,302 @@ fun AddEditJournalScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Symbol
-            OutlinedTextField(
-                value = symbol,
-                onValueChange = { symbol = it.uppercase() },
-                label = { Text("Stock Symbol") },
-                leadingIcon = { Icon(Icons.Default.Business, "Symbol") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true
+            // Symbol Dropdown
+            Text(
+                "Mã cổ phiếu",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Quantity & Price
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = quantity,
-                    onValueChange = { quantity = it.filter { c -> c.isDigit() } },
-                    label = { Text("Quantity") },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = price,
-                    onValueChange = { price = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("Price (USD)") },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    singleLine = true
-                )
-            }
-
-            // Total display
-            val totalValue = (quantity.toIntOrNull() ?: 0) * (price.toDoubleOrNull() ?: 0.0)
-            if (totalValue > 0) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("Total Value", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            String.format("$%,.2f", totalValue),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Strategy
-            OutlinedTextField(
-                value = strategy,
-                onValueChange = { strategy = it },
-                label = { Text("Strategy") },
-                placeholder = { Text("e.g. Swing Trade, Long-term Hold...") },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Emotion
-            Text("Trading Emotion", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                listOf("confident" to "😎 Confident", "neutral" to "😐 Neutral", "nervous" to "😰 Nervous").forEach { (value, label) ->
-                    FilterChip(
-                        selected = emotion == value,
-                        onClick = { emotion = value },
-                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
-            }
+            SymbolDropdownField(
+                selectedSymbol = uiState.selectedSymbol,
+                selectedSymbolName = uiState.selectedSymbolName,
+                watchlistSymbols = uiState.watchlistSymbols.map { it.symbol to it.name },
+                onSymbolSelected = { viewModel.onSymbolSelected(it) }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Quantity
+            OutlinedTextField(
+                value = uiState.quantity,
+                onValueChange = { viewModel.onQuantityChanged(it.filter { c -> c.isDigit() }) },
+                label = { Text("Số lượng") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Date Picker
+            DatePickerField(
+                date = uiState.transactionDate,
+                onDateChanged = { viewModel.onDateChanged(it) }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Reference Price Card
+            ReferencePriceCard(state = uiState.referencePriceState)
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Notes
             OutlinedTextField(
-                value = notes,
-                onValueChange = { notes = it },
-                label = { Text("Notes") },
-                placeholder = { Text("Reason for trade, analysis...") },
-                modifier = Modifier.fillMaxWidth().height(120.dp),
+                value = uiState.notes,
+                onValueChange = { viewModel.onNotesChanged(it) },
+                label = { Text("Ghi chú") },
+                placeholder = { Text("Lý do giao dịch, phân tích...") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp),
                 shape = RoundedCornerShape(12.dp),
                 maxLines = 5
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Save Button
-            Button(
-                onClick = {
-                    val qty = quantity.toIntOrNull() ?: return@Button
-                    val prc = price.toDoubleOrNull() ?: return@Button
-                    if (symbol.isBlank()) return@Button
-                    viewModel.saveEntry(symbol, action, qty, prc, notes, emotion, strategy, onNavigateBack)
-                },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                enabled = symbol.isNotBlank() && quantity.isNotBlank() && price.isNotBlank()
-            ) {
-                Icon(Icons.Default.Save, null, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(8.dp))
+            // Save error
+            if (uiState.saveError != null) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    if (entryId != null) "Update" else "Save Trade",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    text = uiState.saveError!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.labelSmall
                 )
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Save Button
+            val isSaveEnabled = uiState.selectedSymbol.isNotBlank() &&
+                    uiState.quantity.isNotBlank() &&
+                    (uiState.quantity.toIntOrNull() ?: 0) > 0 &&
+                    uiState.transactionDate.isNotBlank() &&
+                    !uiState.isSaving
+
+            Button(
+                onClick = { viewModel.save(onNavigateBack) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp),
+                enabled = isSaveEnabled
+            ) {
+                if (uiState.isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(Icons.Default.Save, null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        if (entryId != null) "Cập nhật" else "Lưu giao dịch",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SymbolDropdownField(
+    selectedSymbol: String,
+    selectedSymbolName: String,
+    watchlistSymbols: List<Pair<String, String>>,
+    onSymbolSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val displayText = if (selectedSymbol.isNotBlank() && selectedSymbolName.isNotBlank()) {
+        "$selectedSymbol - $selectedSymbolName"
+    } else if (selectedSymbol.isNotBlank()) {
+        selectedSymbol
+    } else {
+        ""
+    }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = displayText,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Mã cổ phiếu") },
+            leadingIcon = { Icon(Icons.Default.Business, "Symbol") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(),
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            if (watchlistSymbols.isEmpty()) {
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            "Danh sách theo dõi trống",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    onClick = { expanded = false }
+                )
+            } else {
+                watchlistSymbols.forEach { (symbol, name) ->
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(
+                                    text = symbol,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    text = name,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        onClick = {
+                            onSymbolSelected(symbol)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DatePickerField(
+    date: String,
+    onDateChanged: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val displayFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+    val displayDate = runCatching {
+        LocalDate.parse(date).format(displayFormatter)
+    }.getOrElse { date }
+
+    OutlinedTextField(
+        value = displayDate,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text("Ngày giao dịch") },
+        leadingIcon = { Icon(Icons.Default.DateRange, "Date") },
+        trailingIcon = {
+            IconButton(onClick = {
+                val cal = Calendar.getInstance()
+                runCatching { LocalDate.parse(date) }.getOrNull()?.let { ld ->
+                    cal.set(ld.year, ld.monthValue - 1, ld.dayOfMonth)
+                }
+                DatePickerDialog(
+                    context,
+                    { _, year, month, dayOfMonth ->
+                        val picked = LocalDate.of(year, month + 1, dayOfMonth)
+                        onDateChanged(picked.toString())
+                    },
+                    cal.get(Calendar.YEAR),
+                    cal.get(Calendar.MONTH),
+                    cal.get(Calendar.DAY_OF_MONTH)
+                ).show()
+            }) {
+                Icon(Icons.Default.Edit, "Chọn ngày")
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        singleLine = true
+    )
+}
+
+@Composable
+private fun ReferencePriceCard(state: ReferencePriceState) {
+    when (state) {
+        is ReferencePriceState.Idle -> Unit
+        is ReferencePriceState.Loading -> {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    Text(
+                        "Đang tải giá tham chiếu...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        is ReferencePriceState.Available -> {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = AccentGreen.copy(alpha = 0.08f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "Giá tham chiếu",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = String.format("%,.0f đ", state.price * 1000),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentGreen
+                    )
+                    Text(
+                        text = "Ngày ${state.date}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        is ReferencePriceState.NotAvailable -> {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Text(
+                    text = "Không có dữ liệu giá cho ngày này",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

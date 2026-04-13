@@ -42,8 +42,6 @@ android {
             "SUPABASE_ANON_KEY",
             "\"${localProperties.getProperty("supabase.anon.key", "")}\""
         )
-
-        // API Keys for Alpha Vantage and Finnhub
         buildConfigField(
             "String",
             "ALPHA_VANTAGE_KEY",
@@ -92,7 +90,7 @@ android {
 
 dependencies {
     // Compose BOM
-    val composeBom = platform("androidx.compose:compose-bom:2024.09.00")
+    val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
