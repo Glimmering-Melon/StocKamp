@@ -12,6 +12,8 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stockamp.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.*
 
 private val exchanges = listOf("Tất cả", "HOSE", "HNX", "UPCOM")
 
@@ -272,3 +276,4 @@ fun MarketSymbolCard(row: MarketSymbolRow, onClick: () -> Unit) {
         }
     }
 }
+
