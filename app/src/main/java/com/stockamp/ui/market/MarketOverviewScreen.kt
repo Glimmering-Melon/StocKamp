@@ -1,6 +1,5 @@
 package com.stockamp.ui.market
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,10 +8,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -26,31 +24,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.stockamp.data.model.MarketSector
-import com.stockamp.data.model.Stock
 import com.stockamp.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
+
+private val exchanges = listOf("Tất cả", "HOSE", "HNX", "UPCOM")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MarketOverviewScreen(
     onStockClick: (String) -> Unit,
+    onWatchlistClick: () -> Unit = {},
     viewModel: MarketViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-
-    // Show error as snackbar
-    LaunchedEffect(uiState.errorMessage) {
-        uiState.errorMessage?.let { error ->
-            snackbarHostState.showSnackbar(
-                message = error,
-                duration = SnackbarDuration.Short
-            )
-            viewModel.clearError()
-        }
-    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -92,38 +80,19 @@ fun MarketOverviewScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "US Stock Market Overview",
+                                text = "Vietnam Stock Market Overview",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        // Refresh indicator
-                        if (uiState.isRefreshing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp,
-                                color = AccentGreen
+                        IconButton(onClick = onWatchlistClick) {
+                            Icon(
+                                Icons.Default.Bookmark,
+                                contentDescription = "Watchlist",
+                                modifier = Modifier.size(22.dp),
+                                tint = AccentGreen
                             )
-                        } else {
-                            IconButton(onClick = { viewModel.refreshPrices() }) {
-                                Icon(
-                                    Icons.Default.Refresh,
-                                    contentDescription = "Refresh",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
                         }
-                    }
-
-                    // Last updated
-                    uiState.lastUpdated?.let { timestamp ->
-                        val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-                        Text(
-                            text = "Updated: ${dateFormat.format(Date(timestamp))}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -142,66 +111,80 @@ fun MarketOverviewScreen(
                             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                         )
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Exchange filter chips
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(end = 8.dp)
+                    ) {
+                        items(exchanges) { exchange ->
+                            FilterChip(
+                                selected = uiState.selectedExchange == exchange,
+                                onClick = { viewModel.onExchangeSelected(exchange) },
+                                label = { Text(exchange) }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
             }
 
-            if (uiState.isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+            when {
+                uiState.isLoading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
                 }
-            } else {
-                PullToRefreshBox(
-                    isRefreshing = uiState.isRefreshing,
-                    onRefresh = { viewModel.refreshPrices() },
-                    modifier = Modifier.fillMaxSize()
-                ) {
+                uiState.errorMessage != null -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(24.dp)
+                        ) {
+                            Text(
+                                text = uiState.errorMessage!!,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(onClick = { viewModel.retry() }) {
+                                Icon(Icons.Default.Refresh, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Thử lại")
+                            }
+                        }
+                    }
+                }
+                uiState.filteredSymbols.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(24.dp)
+                        ) {
+                            Text(
+                                text = "Không có dữ liệu (allSymbols=${uiState.allSymbols.size}, exchange=${uiState.selectedExchange})",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(onClick = { viewModel.retry() }) {
+                                Icon(Icons.Default.Refresh, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Thử lại")
+                            }
+                        }
+                    }
+                }
+                else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Sector Heatmap
-                        item {
-                            Text(
-                                "Sectors",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            SectorHeatmap(
-                                sectors = uiState.sectors,
-                                selectedSector = uiState.selectedSector,
-                                onSectorClick = { viewModel.filterBySector(it) }
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
+                        items(uiState.filteredSymbols, key = { it.info.symbol }) { row ->
+                            MarketSymbolCard(row = row, onClick = { onStockClick(row.info.symbol) })
                         }
-
-                        // Stock List Header
-                        item {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "Stocks",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                if (uiState.selectedSector != null) {
-                                    TextButton(onClick = { viewModel.filterBySector(null) }) {
-                                        Text("View All")
-                                    }
-                                }
-                            }
-                        }
-
-                        // Stock List
-                        items(uiState.stocks, key = { it.symbol }) { stock ->
-                            StockCard(stock = stock, onClick = { onStockClick(stock.symbol) })
-                        }
-
                         item { Spacer(modifier = Modifier.height(16.dp)) }
                     }
                 }
@@ -211,67 +194,15 @@ fun MarketOverviewScreen(
 }
 
 @Composable
-fun SectorHeatmap(
-    sectors: List<MarketSector>,
-    selectedSector: String?,
-    onSectorClick: (String?) -> Unit
-) {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(sectors) { sector ->
-            val isSelected = selectedSector == sector.name
-            val isPositive = sector.changePercent >= 0
-            val bgColor = if (isSelected) {
-                if (isPositive) AccentGreen.copy(alpha = 0.2f) else AccentRed.copy(alpha = 0.2f)
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            }
-            val textColor = if (isPositive) AccentGreen else AccentRed
-
-            Card(
-                modifier = Modifier
-                    .clickable {
-                        onSectorClick(if (isSelected) null else sector.name)
-                    },
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = bgColor),
-                elevation = CardDefaults.cardElevation(if (isSelected) 4.dp else 0.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        sector.name,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "${if (isPositive) "+" else ""}${String.format("%.2f", sector.changePercent)}%",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = textColor
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun StockCard(stock: Stock, onClick: () -> Unit) {
-    val isPositive = stock.change >= 0
+fun MarketSymbolCard(row: MarketSymbolRow, onClick: () -> Unit) {
+    val isPositive = (row.changePercent ?: 0.0) >= 0
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
@@ -296,7 +227,7 @@ fun StockCard(stock: Stock, onClick: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    stock.symbol.take(4),
+                    row.info.symbol.take(4),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = if (isPositive) AccentGreen else AccentRed
@@ -305,42 +236,42 @@ fun StockCard(stock: Stock, onClick: () -> Unit) {
 
             Spacer(modifier = Modifier.width(14.dp))
 
-            // Name & Sector
+            // Symbol & Name
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    stock.symbol,
+                    row.info.symbol,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    stock.name,
+                    row.info.name,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
                 )
             }
 
             // Price & Change
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    "$${String.format("%.2f", stock.currentPrice)}",
+                    if (row.latestClose != null)
+                        String.format("%,.0f", row.latestClose)
+                    else "--",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        if (isPositive) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = if (isPositive) AccentGreen else AccentRed
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        "${if (isPositive) "+" else ""}${String.format("%.2f", stock.changePercent)}%",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isPositive) AccentGreen else AccentRed
-                    )
-                }
+                Text(
+                    if (row.changePercent != null)
+                        "${if (row.changePercent >= 0) "+" else ""}${String.format("%.2f", row.changePercent)}%"
+                    else "--",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = when {
+                        row.changePercent == null -> MaterialTheme.colorScheme.onSurfaceVariant
+                        row.changePercent >= 0 -> AccentGreen
+                        else -> AccentRed
+                    }
+                )
             }
         }
     }

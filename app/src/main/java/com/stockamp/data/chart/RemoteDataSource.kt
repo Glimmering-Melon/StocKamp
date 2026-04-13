@@ -29,14 +29,15 @@ class RemoteDataSourceImpl @Inject constructor(
     override suspend fun fetchChartData(symbol: String, timeframe: Timeframe): Result<ChartDataResponse> =
         runCatching {
             // 1. SỬ DỤNG ALPHA VANTAGE ĐỂ VẼ BIỂU ĐỒ (Ổn định 100%)
-            val alphaVantageKeys = listOf(
-                "UOURIOCWX52JL0TL",
-                "82UQPGCK41Z3XOM3",
-                "YEVBH91JMXQIO6G0",
-                "I23OUCQUJ2NFDSAG",
-                "U64GFQ4MV2HK42A2"
-            )
-            val apiKey = alphaVantageKeys.random()
+            val apiKey = BuildConfig.ALPHA_VANTAGE_KEY.ifBlank {
+                listOf(
+                    "UOURIOCWX52JL0TL",
+                    "82UQPGCK41Z3XOM3",
+                    "YEVBH91JMXQIO6G0",
+                    "I23OUCQUJ2NFDSAG",
+                    "U64GFQ4MV2HK42A2"
+                ).random()
+            }
 
             // Lấy dữ liệu: compact = 100 ngày qua, full = 20 năm
             val outputSize = if (timeframe == Timeframe.ONE_DAY || timeframe == Timeframe.ONE_WEEK || timeframe == Timeframe.ONE_MONTH || timeframe == Timeframe.THREE_MONTHS) {

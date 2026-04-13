@@ -10,6 +10,7 @@ import com.stockamp.data.local.SyncQueueDao
 import com.stockamp.data.local.SyncMetadataDao
 import com.stockamp.data.local.ChartDataDao
 import com.stockamp.data.local.NewsDao
+import com.stockamp.data.local.StockSymbolCacheDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -34,7 +35,7 @@ object AppModule {
             StocKampDatabase::class.java,
             "stockamp_database"
         )
-            .addMigrations(StocKampDatabase.MIGRATION_1_2, StocKampDatabase.MIGRATION_2_3, StocKampDatabase.MIGRATION_3_4)
+            .addMigrations(StocKampDatabase.MIGRATION_1_2, StocKampDatabase.MIGRATION_2_3, StocKampDatabase.MIGRATION_3_4, StocKampDatabase.MIGRATION_4_5, StocKampDatabase.MIGRATION_5_6)
             .build()
     }
 
@@ -58,6 +59,9 @@ object AppModule {
 
     @Provides
     fun provideNewsDao(database: StocKampDatabase): NewsDao = database.newsDao()
+
+    @Provides
+    fun provideStockSymbolCacheDao(database: StocKampDatabase): StockSymbolCacheDao = database.stockSymbolCacheDao()
 
     @Provides
     @Singleton

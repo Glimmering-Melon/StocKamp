@@ -1,7 +1,10 @@
 package com.stockamp.data.supabase
 
 import com.stockamp.data.model.JournalEntry
+import com.stockamp.data.model.LatestCloseResult
 import com.stockamp.data.model.NewsArticleDto
+import com.stockamp.data.model.PriceDataPoint
+import com.stockamp.data.model.StockSymbolInfo
 import com.stockamp.data.model.UserProfile
 import com.stockamp.data.model.WatchlistItem
 import io.github.jan.supabase.gotrue.user.UserSession
@@ -42,6 +45,11 @@ interface SupabaseClient {
     suspend fun fetchNewsArticles(offset: Int, limit: Int): Result<List<NewsArticleDto>>
     suspend fun subscribeToNewsInserts(onInsert: (NewsArticleDto) -> Unit): Result<Unit>
     fun unsubscribeFromNews()
+
+    // Market data (implemented in task 9)
+    suspend fun fetchStockPrices(symbol: String, timeframe: String): Result<List<PriceDataPoint>>
+    suspend fun fetchStockSymbols(): Result<List<StockSymbolInfo>>
+    suspend fun fetchLatestClose(symbol: String): Result<LatestCloseResult?>
 }
 
 /**

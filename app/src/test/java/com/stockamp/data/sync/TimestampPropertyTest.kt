@@ -97,11 +97,6 @@ private class FakeJournalDao : com.stockamp.data.local.JournalDao {
         entries.removeAll { it.id == entry.id }
     }
 
-    override suspend fun getTotalPnL() =
-        entries.filter { !it.isDeleted }.sumOf {
-            if (it.action == "BUY") -it.totalValue else it.totalValue
-        }
-
     override suspend fun getTotalTrades() =
         entries.count { !it.isDeleted }
 
@@ -122,7 +117,6 @@ private fun arbJournalEntry(): Arb<JournalEntry> =
             symbol = "SYM${seed % 100}",
             action = if (seed % 2 == 0L) "BUY" else "SELL",
             quantity = ((seed % 50) + 1).toInt(),
-            price = 10.0 + (seed % 990),
             notes = "note $seed"
             // createdAt intentionally left at default (0L triggers repo logic)
         )
@@ -134,7 +128,6 @@ private fun arbJournalEntryWithCreatedAt(): Arb<JournalEntry> =
             symbol = "SYM${seed % 100}",
             action = if (seed % 2 == 0L) "BUY" else "SELL",
             quantity = ((seed % 50) + 1).toInt(),
-            price = 10.0 + (seed % 990),
             notes = "note $seed",
             createdAt = 1_000_000L + seed  // pre-set non-zero createdAt
         )

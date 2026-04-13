@@ -1,4 +1,4 @@
-package com.stockamp.ui.journal
+﻿package com.stockamp.ui.journal
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,8 +23,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stockamp.data.model.JournalEntry
 import com.stockamp.ui.sync.SyncStatusIndicator
 import com.stockamp.ui.theme.*
-import java.text.SimpleDateFormat
-import java.util.*@OptIn(ExperimentalMaterial3Api::class)
+
+private fun formatDate(isoDate: String): String {
+    val parts = isoDate.split("-")
+    return if (parts.size == 3) "${parts[2]}/${parts[1]}/${parts[0]}" else isoDate
+}
+
+private fun formatProfitPercent(value: Double): String {
+    return if (value >= 0) "+${String.format("%.2f", value)}%" else "${String.format("%.2f", value)}%"
+}
+
+private fun formatProfitVnd(value: Double): String {
+    return if (value >= 0) "+${String.format("%,.0f", value)} VNĐ" else "${String.format("%,.0f", value)} VNĐ"
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JournalScreen(
     onAddEntry: () -> Unit,
@@ -50,7 +63,6 @@ fun JournalScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(padding)
         ) {
-            // Header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -78,7 +90,6 @@ fun JournalScreen(
                     SyncStatusIndicator()
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Stats Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -90,12 +101,23 @@ fun JournalScreen(
                             icon = Icons.Default.Receipt,
                             color = AccentBlue
                         )
+                        val pnlVnd = uiState.totalUnrealizedPnLVnd
+                        val pnlColor = when {
+                            pnlVnd > 0 -> AccentGreen
+                            pnlVnd < 0 -> AccentRed
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        val pnlText = if (pnlVnd == 0.0 && uiState.pnlMap.isEmpty()) {
+                            "--"
+                        } else {
+                            String.format("%+,.0f VNĐ", pnlVnd)
+                        }
                         StatCard(
                             modifier = Modifier.weight(1f),
-                            title = "P&L",
-                            value = "$${String.format("%,.2f", uiState.totalPnL)}",
+                            title = "Lợi nhuận (P&L)",
+                            value = pnlText,
                             icon = Icons.Default.TrendingUp,
-                            color = if (uiState.totalPnL >= 0) AccentGreen else AccentRed
+                            color = pnlColor
                         )
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -107,10 +129,7 @@ fun JournalScreen(
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             } else if (uiState.entries.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
                             Icons.Default.MenuBook,
@@ -141,6 +160,7 @@ fun JournalScreen(
                     items(uiState.entries, key = { it.id }) { entry ->
                         JournalEntryCard(
                             entry = entry,
+                            pnl = uiState.pnlMap[entry.id],
                             onClick = { onEditEntry(entry.id) },
                             onDelete = { viewModel.deleteEntry(entry) }
                         )
@@ -181,7 +201,7 @@ private fun StatCard(
                 Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = color)
         }
     }
 }
@@ -190,11 +210,13 @@ private fun StatCard(
 @Composable
 private fun JournalEntryCard(
     entry: JournalEntry,
+    pnl: EntryPnL?,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
     val isBuy = entry.action == "BUY"
-    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
+    val actionLabel = if (isBuy) "MUA" else "BÁN"
+    val badgeColor = if (isBuy) AccentGreen else AccentRed
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
@@ -207,52 +229,60 @@ private fun JournalEntryCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Action Badge
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .background(
-                            if (isBuy) AccentGreen.copy(alpha = 0.12f) else AccentRed.copy(alpha = 0.12f)
-                        )
+                        .background(badgeColor.copy(alpha = 0.12f))
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        String.format("$%,.2f", entry.totalValue),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        text = "${entry.symbol} · $actionLabel",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = badgeColor
                     )
                 }
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    entry.symbol,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
                 Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    String.format("%,.0f VNĐ", entry.totalValue),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        "${entry.quantity} shares × $${String.format("%,.2f", entry.price)}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        dateFormat.format(Date(entry.createdAt)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "${entry.quantity} cổ phiếu",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    formatDate(entry.transactionDate),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            if (pnl == null || pnl.entryPrice == null) {
+                Text(
+                    "Không có dữ liệu giá",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                val cardTitle = if (isBuy) {
+                    "Tình trạng hiện tại"
+                } else {
+                    "Nếu giữ lại đến ${pnl.latestDate?.let { formatDate(it) } ?: "--"}"
                 }
+                PnLCard(
+                    title = cardTitle,
+                    profitPercent = pnl.profitPercent,
+                    profitVnd = pnl.profitVnd,
+                    latestDate = if (isBuy) pnl.latestDate else null
+                )
+            }
 
             if (entry.notes.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -263,30 +293,66 @@ private fun JournalEntryCard(
                     maxLines = 2
                 )
             }
+        }
+    }
+}
 
-            if (entry.strategy.isNotBlank() || entry.emotion.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (entry.strategy.isNotBlank()) {
-                        SuggestionChip(
-                            onClick = {},
-                            label = { Text(entry.strategy, style = MaterialTheme.typography.labelSmall) },
-                            shape = RoundedCornerShape(8.dp)
-                        )
+@Composable
+private fun PnLCard(
+    title: String,
+    profitPercent: Double?,
+    profitVnd: Double?,
+    latestDate: String?
+) {
+    Card(
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (profitPercent != null) {
+                    val percentColor = when {
+                        profitPercent > 0 -> AccentGreen
+                        profitPercent < 0 -> AccentRed
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
-                    if (entry.emotion.isNotBlank()) {
-                        val emoji = when (entry.emotion) {
-                            "confident" -> "😎"
-                            "nervous" -> "😰"
-                            else -> "😐"
-                        }
-                        SuggestionChip(
-                            onClick = {},
-                            label = { Text("$emoji ${entry.emotion}", style = MaterialTheme.typography.labelSmall) },
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                    }
+                    Text(
+                        formatProfitPercent(profitPercent),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = percentColor
+                    )
                 }
+                if (profitVnd != null) {
+                    val vndColor = when {
+                        profitVnd > 0 -> AccentGreen
+                        profitVnd < 0 -> AccentRed
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    Text(
+                        formatProfitVnd(profitVnd),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = vndColor
+                    )
+                }
+            }
+            if (latestDate != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    "Cập nhật: ${formatDate(latestDate)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
             }
         }
     }

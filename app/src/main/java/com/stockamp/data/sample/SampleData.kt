@@ -62,11 +62,11 @@ object SampleData {
     )
 
     val sampleJournalEntries = listOf(
-        JournalEntry(1, "", "AAPL", "BUY", 50, 175.00, 8_750.0, "Strong iPhone sales expected", "confident", "Swing Trade"),
-        JournalEntry(2, "", "NVDA", "BUY", 10, 850.00, 8_500.0, "AI chip demand surging", "confident", "Long-term Hold"),
-        JournalEntry(3, "", "TSLA", "SELL", 30, 180.00, 5_400.0, "Taking profit after 15% rally", "neutral", "Swing Trade"),
-        JournalEntry(4, "", "MSFT", "BUY", 20, 410.00, 8_200.0, "Azure cloud growth strong", "confident", "Long-term Hold"),
-        JournalEntry(5, "", "DIS", "SELL", 40, 115.00, 4_600.0, "Cut loss on weak streaming numbers", "nervous", "Stop Loss"),
+        JournalEntry(id = 1, symbol = "FPT", action = "BUY", quantity = 100, transactionDate = "2026-03-01", notes = "Kỳ vọng tăng trưởng AI"),
+        JournalEntry(id = 2, symbol = "VCB", action = "BUY", quantity = 200, transactionDate = "2026-03-05", notes = "Ngân hàng top tier, giá hợp lý"),
+        JournalEntry(id = 3, symbol = "HPG", action = "SELL", quantity = 500, transactionDate = "2026-03-10", notes = "Chốt lời sau khi tăng 15%"),
+        JournalEntry(id = 4, symbol = "VNM", action = "BUY", quantity = 150, transactionDate = "2026-03-15", notes = "Cổ tức ổn định, giá chiết khấu"),
+        JournalEntry(id = 5, symbol = "MWG", action = "SELL", quantity = 300, transactionDate = "2026-03-20", notes = "Cắt lỗ do báo cáo quý kém"),
     )
 }
 
