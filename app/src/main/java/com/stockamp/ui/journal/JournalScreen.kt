@@ -82,7 +82,7 @@ fun JournalScreen(
                 Column {
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Nhật ký giao dịch",
+                        text = "Trading Journal",
                         style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.Bold
                     )
@@ -96,7 +96,7 @@ fun JournalScreen(
                     ) {
                         StatCard(
                             modifier = Modifier.weight(1f),
-                            title = "Tổng giao dịch",
+                            title = "Total Trades",
                             value = "${uiState.totalTrades}",
                             icon = Icons.Default.Receipt,
                             color = AccentBlue
@@ -139,13 +139,13 @@ fun JournalScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            "Chưa có giao dịch nào",
+                            "No trades yet",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Bấm + để ghi lại giao dịch đầu tiên",
+                            "Tap + to record your first trade",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             textAlign = TextAlign.Center

@@ -5,6 +5,7 @@ import com.stockamp.data.local.StockDao
 import com.stockamp.data.local.WatchlistDao
 import com.stockamp.data.local.JournalDao
 import com.stockamp.data.model.*
+import com.stockamp.data.network.FinnhubApiService
 import com.stockamp.data.sample.SampleData
 import com.stockamp.data.supabase.SupabaseClient
 import kotlinx.coroutines.flow.Flow
@@ -14,10 +15,11 @@ import javax.inject.Singleton
 
 @Singleton
 class StockRepository @Inject constructor(
-    private val stockDao: StockDao
+    private val stockDao: StockDao,
+    private val finnhubApiService: FinnhubApiService,
+    private val remoteDataSource: com.stockamp.data.chart.RemoteDataSource
 ) {
     fun getAllStocks(): Flow<List<Stock>> = stockDao.getAllStocks()
-
     fun searchStocks(query: String): Flow<List<Stock>> = stockDao.searchStocks(query)
 
     /** Tìm kiếm và trả về list ngay (dùng cho search global trong ViewModel) */
@@ -30,13 +32,8 @@ class StockRepository @Inject constructor(
     }
 
     fun getStocksBySector(sector: String): Flow<List<Stock>> = stockDao.getStocksBySector(sector)
-
     suspend fun getStockBySymbol(symbol: String): Stock? = stockDao.getStockBySymbol(symbol)
-
-    fun getPriceHistory(symbol: String, days: Int = 30): List<StockPrice> {
-        return SampleData.generatePriceHistory(symbol, days)
-    }
-
+    fun getPriceHistory(symbol: String, days: Int = 30): List<StockPrice> = SampleData.generatePriceHistory(symbol, days)
     fun getSectors(): List<MarketSector> = SampleData.sectors
 
     suspend fun loadSampleData() {
@@ -85,7 +82,6 @@ class WatchlistRepository @Inject constructor(
     private val supabaseClient: SupabaseClient
 ) {
     fun getAllWatchlistItems(): Flow<List<WatchlistItem>> = watchlistDao.getAllWatchlistItems()
-
     suspend fun addToWatchlist(symbol: String, name: String) {
         val now = System.currentTimeMillis()
         val userId = authManager.getCurrentUser().firstOrNull()?.id ?: ""
@@ -103,7 +99,6 @@ class WatchlistRepository @Inject constructor(
             supabaseClient.upsertWatchlistItem(item)
         }
     }
-
     suspend fun updateWatchlistItem(item: WatchlistItem) {
         val now = System.currentTimeMillis()
         val updated = item.copy(modifiedAt = now)
@@ -140,24 +135,17 @@ class WatchlistRepository @Inject constructor(
 }
 
 @Singleton
-class JournalRepository @Inject constructor(
-    private val journalDao: JournalDao
-) {
+class JournalRepository @Inject constructor(private val journalDao: JournalDao) {
     fun getAllEntries(): Flow<List<JournalEntry>> = journalDao.getAllEntries()
-
     fun getEntriesBySymbol(symbol: String): Flow<List<JournalEntry>> = journalDao.getEntriesBySymbol(symbol)
-
     suspend fun getEntryById(id: Long): JournalEntry? = journalDao.getEntryById(id)
-
     suspend fun addEntry(entry: JournalEntry): Long {
-        // Ensure createdAt is set to current UTC time if not already provided (Requirement 12.3)
         val now = System.currentTimeMillis()
         val entryWithTimestamp = if (entry.createdAt == 0L) entry.copy(createdAt = now) else entry
         return journalDao.insertEntry(entryWithTimestamp)
     }
-
     suspend fun updateEntry(entry: JournalEntry) {
-        val now = System.currentTimeMillis() // UTC epoch millis (Requirement 12.4)
+        val now = System.currentTimeMillis()
         journalDao.updateEntry(entry.copy(modifiedAt = now))
     }
 
