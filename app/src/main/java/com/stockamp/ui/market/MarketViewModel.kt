@@ -99,18 +99,21 @@ class MarketViewModel @Inject constructor(
         exchange: String = _uiState.value.selectedExchange
     ) {
         val all = _uiState.value.allSymbols
+
         val filtered = all
-            .let { list ->
-                if (exchange == "Tất cả") list.take(50)
-                else list.filter { it.info.exchange.equals(exchange, ignoreCase = true) }
-            }
             .let { list ->
                 if (query.isBlank()) list
                 else list.filter { row ->
                     row.info.symbol.contains(query, ignoreCase = true) ||
-                        row.info.name.contains(query, ignoreCase = true)
+                            row.info.name.contains(query, ignoreCase = true)
                 }
             }
+            .let { list ->
+                if (exchange == "Tất cả") list
+                else list.filter { it.info.exchange.equals(exchange, ignoreCase = true) }
+            }
+            .take(50)
+
         _uiState.update { it.copy(filteredSymbols = filtered) }
     }
 
