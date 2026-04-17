@@ -64,6 +64,5 @@ Không dùng mô hình Client-Server đơn thuần, mà là mô hình  **Microse
   * Widget đưa ra màn hình chính.
 * **Giai đoạn 3 (Advanced AI):**
   * Tích hợp GNN, Supply Chain Graph, Smart Clustering.
-  * Đây là lúc bạn cần đầu tư sâu vào Data Engineering.
 
 -

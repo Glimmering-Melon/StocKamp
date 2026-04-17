@@ -2,6 +2,8 @@ package com.stockamp.ui.market
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -18,12 +20,17 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stockamp.data.model.ChartUiState
+import com.stockamp.data.model.PriceDataPoint
 import com.stockamp.data.model.StockPrice
 import com.stockamp.ui.theme.*
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -199,6 +206,14 @@ fun StockDetailScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Price history table
+            val priceHistory = (chartState as? ChartUiState.Success)?.priceData
+                ?.sortedByDescending { it.timestamp } ?: emptyList()
+            if (priceHistory.isNotEmpty()) {
+                PriceHistoryTable(priceData = priceHistory)
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+
             // Symbol info details
             uiState.symbolInfo?.let { info ->
                 Text(
@@ -305,5 +320,90 @@ private fun StatRow(label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold
         )
+    }
+}
+
+@Composable
+private fun PriceHistoryTable(priceData: List<PriceDataPoint>) {
+    val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+        .withZone(ZoneId.of("Asia/Ho_Chi_Minh"))
+
+    Text(
+        "Lịch sử giá",
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold
+    )
+    Spacer(modifier = Modifier.height(12.dp))
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column {
+            // Header row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Ngày", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(2f))
+                Text("Mở", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                Text("Cao", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                Text("Thấp", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                Text("Đóng", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+            priceData.take(30).forEachIndexed { index, point ->
+                val date = formatter.format(Instant.ofEpochMilli(point.timestamp))
+                val prevClose = priceData.getOrNull(index + 1)?.close
+                val isUp = prevClose == null || point.close >= prevClose
+                val closeColor = if (isUp) AccentGreen else AccentRed
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(date, style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(2f))
+                    Text(String.format("%,.0f", point.open),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                    Text(String.format("%,.0f", point.high),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AccentGreen,
+                        modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                    Text(String.format("%,.0f", point.low),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AccentRed,
+                        modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                    Text(String.format("%,.0f", point.close),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = closeColor,
+                        modifier = Modifier.weight(1.5f), textAlign = TextAlign.End)
+                }
+                if (index < priceData.take(30).size - 1) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    )
+                }
+            }
+        }
     }
 }

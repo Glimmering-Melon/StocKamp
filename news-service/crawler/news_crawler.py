@@ -63,7 +63,7 @@ DEFAULT_SOURCES: list[NewsSource] = [
         link_selector="h3 a, h4 a, .title a",
         date_selector=".time, .date, time",
     ),
-    # ===== Nguồn Quốc tế (tiếng Anh) =====
+    # ===== Nguồn Quốc tế =====
     NewsSource(url="https://feeds.marketwatch.com/marketwatch/topstories/", source_name="MarketWatch", parser_type="rss"),
     NewsSource(url="https://www.cnbc.com/id/10000664/device/rss/rss.html", source_name="CNBC-Markets", parser_type="rss"),
     NewsSource(url="https://www.cnbc.com/id/10001147/device/rss/rss.html", source_name="CNBC-Finance", parser_type="rss"),
@@ -77,9 +77,7 @@ class NewsCrawler:
         self.sources: list[NewsSource] = sources or DEFAULT_SOURCES
         self._supabase: Client = create_client(supabase_url, supabase_key)
 
-    # ------------------------------------------------------------------
     # Public entry point
-    # ------------------------------------------------------------------
 
     async def run(self) -> dict:
         """Crawl all sources and save new articles. Returns crawl stats."""
@@ -107,9 +105,7 @@ class NewsCrawler:
             "errors": errors,
         }
 
-    # ------------------------------------------------------------------
     # Fetch
-    # ------------------------------------------------------------------
 
     async def fetch_source(self, source: NewsSource,
                            client: Optional[httpx.AsyncClient] = None) -> list[ParsedArticle]:
@@ -146,9 +142,7 @@ class NewsCrawler:
             if own_client:
                 await client.aclose()
 
-    # ------------------------------------------------------------------
     # Parsers
-    # ------------------------------------------------------------------
 
     def _parse_rss(self, source: NewsSource, content: str) -> list[ParsedArticle]:
         """Parse RSS/Atom feed using xml.etree (no external feedparser needed)."""
@@ -161,7 +155,7 @@ class NewsCrawler:
             logger.error("RSS parse error for %s: %s", source.source_name, exc)
             return articles
 
-        # Support both RSS 2.0 (<channel><item>) and Atom (<feed><entry>)
+        # RSS 2.0 & Atom
         ns = {"atom": "http://www.w3.org/2005/Atom"}
         items = root.findall(".//item") or root.findall(".//atom:entry", ns)
 
@@ -169,7 +163,7 @@ class NewsCrawler:
             try:
                 title = _text(item, ["title", "atom:title"], ns)
                 link = _text(item, ["link", "atom:link", "guid"], ns)
-                # Atom <link> is an attribute, not text
+                # Atom <link>=attribute
                 if not link:
                     link_el = item.find("atom:link", ns)
                     if link_el is not None:
@@ -205,7 +199,7 @@ class NewsCrawler:
         except Exception:
             soup = BeautifulSoup(content, "html.parser")
 
-        # Try each selector in the comma-separated list
+        # Try selector 
         containers = []
         for sel in source.article_selector.split(","):
             sel = sel.strip()
@@ -215,10 +209,10 @@ class NewsCrawler:
                     break
 
         if not containers:
-            # Fallback: grab all <article> or <div class*=news>
+            # Fallback
             containers = soup.find_all("article") or soup.select("div[class*=news]")
 
-        for container in containers[:100]:  # cap at 100 per source
+        for container in containers[:100]:  # cap 100 
             try:
                 title_el = _select_first(container, source.title_selector)
                 link_el = _select_first(container, source.link_selector) or title_el
@@ -235,7 +229,6 @@ class NewsCrawler:
                 if not title or not link:
                     continue
 
-                # Make relative URLs absolute
                 if link.startswith("/"):
                     from urllib.parse import urlparse
                     parsed = urlparse(source.url)
@@ -257,9 +250,7 @@ class NewsCrawler:
 
         return articles
 
-    # ------------------------------------------------------------------
     # Stock symbol extraction
-    # ------------------------------------------------------------------
 
     def _extract_stock_symbols(self, text: str) -> list[str]:
         """Extract VN30/HOSE stock symbols (2-5 uppercase letters) from text."""
@@ -274,9 +265,7 @@ class NewsCrawler:
                 result.append(sym)
         return result
 
-    # ------------------------------------------------------------------
     # Persistence
-    # ------------------------------------------------------------------
 
     async def save_articles(self, articles: list[ParsedArticle]) -> int:
         """Upsert articles to Supabase. Returns number of new rows inserted."""
@@ -297,7 +286,6 @@ class NewsCrawler:
         ]
 
         try:
-            # on_conflict="url" skips duplicates (requirement 1.4)
             response = (
                 self._supabase.table("news_articles")
                 .upsert(rows, on_conflict="url", ignore_duplicates=True)
@@ -310,9 +298,7 @@ class NewsCrawler:
             return 0
 
 
-# ------------------------------------------------------------------
 # Helpers
-# ------------------------------------------------------------------
 
 def _text(element: ElementTree.Element, tags: list[str],
           ns: dict) -> Optional[str]:
@@ -343,11 +329,10 @@ def _parse_date(date_str: Optional[str]) -> str:
     if not date_str:
         return datetime.now(timezone.utc).isoformat()
 
-    # Try common formats
     formats = [
-        "%a, %d %b %Y %H:%M:%S %z",   # RFC 2822 (RSS pubDate)
+        "%a, %d %b %Y %H:%M:%S %z",  
         "%a, %d %b %Y %H:%M:%S GMT",
-        "%Y-%m-%dT%H:%M:%S%z",         # ISO 8601
+        "%Y-%m-%dT%H:%M:%S%z",         
         "%Y-%m-%dT%H:%M:%SZ",
         "%Y-%m-%d %H:%M:%S",
         "%d/%m/%Y %H:%M",
