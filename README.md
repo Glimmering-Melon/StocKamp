@@ -65,4 +65,3 @@ Không dùng mô hình Client-Server đơn thuần, mà là mô hình  **Microse
 * **Giai đoạn 3 (Advanced AI):**
   * Tích hợp GNN, Supply Chain Graph, Smart Clustering.
 
--

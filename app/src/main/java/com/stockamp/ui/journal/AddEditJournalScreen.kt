@@ -66,7 +66,7 @@ fun AddEditJournalScreen(
             TopAppBar(
                 title = {
                     Text(
-                        if (entryId != null) "Sửa giao dịch" else "Thêm giao dịch",
+                        if (entryId != null) "Edit Trade" else "Add Trade",
                         fontWeight = FontWeight.Bold
                     )
                 },
