@@ -7,7 +7,6 @@ from models.article import PendingArticle, SentimentResult
 
 logger = logging.getLogger(__name__)
 
-# Graceful import: transformers/torch may not be installed
 try:
     from transformers import pipeline as hf_pipeline
     _TRANSFORMERS_AVAILABLE = True
@@ -41,7 +40,7 @@ _LABEL_MAP: dict[str, str] = {
 }
 
 _BATCH_SIZE = 32
-_FETCH_LIMIT = 500  # tăng từ 100 lên 500 bài mỗi lần xử lý
+_FETCH_LIMIT = 500  
 
 
 class AIProcessor:
@@ -56,16 +55,14 @@ class AIProcessor:
         self._supabase_url = supabase_url
         self._supabase_key = supabase_key
         self._model_name = model_name
-        self._pipe = None  # loaded lazily / at startup
+        self._pipe = None  
 
         if _TRANSFORMERS_AVAILABLE:
             self._load_model()
         else:
             logger.warning("Skipping model load — transformers not available.")
 
-    # ------------------------------------------------------------------
     # Model loading
-    # ------------------------------------------------------------------
 
     def _load_model(self) -> None:
         """Load the HuggingFace sentiment-analysis pipeline."""
@@ -83,18 +80,14 @@ class AIProcessor:
             logger.exception("Failed to load model '%s'.", self._model_name)
             self._pipe = None
 
-    # ------------------------------------------------------------------
     # Supabase helpers
-    # ------------------------------------------------------------------
 
     def _get_client(self):
         """Return a Supabase client (imported lazily to avoid hard dependency at module level)."""
         from supabase import create_client  # type: ignore
         return create_client(self._supabase_url, self._supabase_key)
 
-    # ------------------------------------------------------------------
     # Public API
-    # ------------------------------------------------------------------
 
     async def run(self) -> dict:
         """Main entry point called by the APScheduler job.
@@ -138,10 +131,6 @@ class AIProcessor:
 
     def analyze_batch(self, articles: list[PendingArticle]) -> list[SentimentResult]:
         """Run sentiment analysis in batches of *_BATCH_SIZE*.
-
-        Each article's text is the concatenation of title and summary.
-        Labels are mapped to POSITIVE / NEGATIVE / NEUTRAL.
-        Per-article exceptions are caught and result in analysis_failed status.
         """
         results: list[SentimentResult] = []
 
@@ -220,9 +209,7 @@ class AIProcessor:
                 )
 
 
-# ------------------------------------------------------------------
 # Helpers
-# ------------------------------------------------------------------
 
 def _build_text(article: PendingArticle) -> str:
     """Concatenate title and summary for model input."""

@@ -15,3 +15,4 @@ sentencepiece
 protobuf
 yfinance
 vnstock>=3.4.0
+opencv-python
