@@ -107,4 +107,11 @@ class NewsRepositoryImpl @Inject constructor(
     override suspend fun unsubscribeRealtime() {
         supabaseClient.unsubscribeFromNews()
     }
+
+    override fun searchNewsByTitle(query: String, limit: Int): Flow<List<NewsArticle>> {
+        return newsDao.searchNewsByTitle(query, limit).map { entities ->
+            entities.map { it.toDomain() }
+        }
+    }
 }
+
