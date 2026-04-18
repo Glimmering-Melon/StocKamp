@@ -11,4 +11,5 @@ interface NewsRepository {
     suspend fun refresh(): Result<Unit>
     suspend fun subscribeRealtime()
     suspend fun unsubscribeRealtime()
+    fun searchNewsByTitle(query: String, limit: Int = 100): Flow<List<NewsArticle>>
 }

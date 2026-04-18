@@ -44,7 +44,7 @@ fun NewsListScreen(
 
     LaunchedEffect(initialSymbolFilter) {
         if (!initialSymbolFilter.isNullOrBlank()) {
-            viewModel.applyFilter(listOf(initialSymbolFilter))
+            viewModel.applyFilter(initialSymbolFilter)
         }
     }
 
@@ -83,8 +83,8 @@ fun NewsListScreen(
             ) {
                 OutlinedTextField(
                     value = filterInput,
-                    onValueChange = { filterInput = it.uppercase() },
-                    placeholder = { Text("Lọc theo mã (VD: VNM)") },
+                    onValueChange = { filterInput = it },
+                    placeholder = { Text("Tìm kiếm bài viết...") },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true
@@ -92,12 +92,12 @@ fun NewsListScreen(
                 Button(
                     onClick = {
                         if (filterInput.isNotBlank()) {
-                            viewModel.applyFilter(activeFilters + filterInput.trim())
+                            viewModel.applyFilter(filterInput.trim())
                             filterInput = ""
                         }
                     },
                     shape = RoundedCornerShape(12.dp)
-                ) { Text("Lọc") }
+                ) { Text("Tìm kiếm") }
             }
 
             // Active filter chips
@@ -111,11 +111,9 @@ fun NewsListScreen(
                         InputChip(
                             selected = true,
                             onClick = {
-                                val newFilters = activeFilters - symbol
-                                if (newFilters.isEmpty()) viewModel.clearFilter()
-                                else viewModel.applyFilter(newFilters)
+                                viewModel.clearFilter()
                             },
-                            label = { Text(symbol) },
+                            label = { Text("Từ khoá: $symbol") },
                             trailingIcon = { Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp)) },
                             shape = RoundedCornerShape(8.dp)
                         )
@@ -151,10 +149,19 @@ fun NewsListScreen(
                     ) {
                         items(pagingItems.itemCount) { index ->
                             val article = pagingItems[index] ?: return@items
-                            // Apply client-side symbol filter if active
-                            if (activeFilters.isNotEmpty() &&
-                                activeFilters.none { sym -> article.stockSymbols.any { it.equals(sym, ignoreCase = true) } }
-                            ) return@items
+
+                            // Áp dụng bộ lọc client-side theo Tiêu đề và Tóm tắt bài viết
+                            if (activeFilters.isNotEmpty()) {
+                                val searchQuery = activeFilters.first().trim()
+                                val titleMatches = article.title.contains(searchQuery, ignoreCase = true)
+                                val summaryMatches = article.summary?.contains(searchQuery, ignoreCase = true) ?: false
+
+                                // Nếu tiêu đề và tóm tắt đều không chứa từ khóa thì bỏ qua bài này
+                                if (!titleMatches && !summaryMatches) {
+                                    return@items
+                                }
+                            }
+
                             NewsArticleCard(
                                 article = article,
                                 onClick = {

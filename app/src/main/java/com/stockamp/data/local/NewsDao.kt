@@ -11,6 +11,14 @@ interface NewsDao {
     @Query("SELECT * FROM news_articles ORDER BY published_at DESC")
     fun getAllNews(): PagingSource<Int, NewsArticleEntity>
 
+
+    @Query("""
+        SELECT * FROM news_articles 
+        WHERE title LIKE '%' || :query || '%'
+        ORDER BY published_at DESC LIMIT :limit
+    """)
+    fun searchNewsByTitle(query: String, limit: Int = 100): Flow<List<NewsArticleEntity>>
+
     @Query("""
         SELECT * FROM news_articles 
         WHERE stock_symbols LIKE '%' || :symbol || '%'
