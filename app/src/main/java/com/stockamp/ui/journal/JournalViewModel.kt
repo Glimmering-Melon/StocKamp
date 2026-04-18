@@ -95,9 +95,10 @@ class JournalViewModel @Inject constructor(
             val latestClose = latestCloseResult?.close
             val latestDate = latestCloseResult?.date
 
-            val profitPercent = if (entryPrice != null && entryPrice != 0.0 && latestClose != null) {
-                ProfitMarginCalculator.calculate(entryPrice, latestClose)
-            } else null
+            val profitPercent =
+                if (entryPrice != null && entryPrice != 0.0 && latestClose != null) {
+                    ProfitMarginCalculator.calculate(entryPrice, latestClose)
+                } else null
 
             val profitVnd = if (entryPrice != null && latestClose != null) {
                 (latestClose - entryPrice) * entry.quantity
@@ -127,7 +128,17 @@ class JournalViewModel @Inject constructor(
 
     fun deleteEntry(entry: JournalEntry) {
         viewModelScope.launch {
-            journalDao.deleteEntry(entry)
+            val currentEntry = journalDao.getEntryById(entry.id)
+                ?: journalDao.getAllEntries().first().find { it.createdAt == entry.createdAt }
+                ?: entry
+
+            val deletedEntry = currentEntry.copy(
+                isDeleted = true,
+                modifiedAt = System.currentTimeMillis()
+            )
+
+            journalDao.updateEntry(deletedEntry)
+
             syncEngine.syncJournal()
         }
     }

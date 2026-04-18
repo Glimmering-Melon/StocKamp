@@ -263,14 +263,14 @@ class SyncEngineImpl @Inject constructor(
     override suspend fun syncJournal(): Result<Unit> = runCatching {
         val userId = currentUserId() ?: return@runCatching
 
-        // --- Upload TRƯỚC (task 8.4) ---
+// --- Upload TRƯỚC (task 8.4) ---
         val journalDao = database.journalDao()
         val unsynced = journalDao.getUnsyncedJournalEntries()
         for (entry in unsynced) {
             if (entry.isDeleted) {
                 retryWithTokenRefresh { supabaseClient.deleteJournalEntry(entry.id) }
                     .onSuccess {
-                        journalDao.deleteEntry(entry)
+                        journalDao.updateEntry(entry.copy(syncedAt = System.currentTimeMillis()))
                         Log.d(TAG, "syncJournal: pushed deletion for entry id=${entry.id}")
                     }.onFailure { e ->
                         // Req 13.3: queue for next sync cycle instead of throwing
@@ -286,8 +286,7 @@ class SyncEngineImpl @Inject constructor(
                 retryWithTokenRefresh { supabaseClient.upsertJournalEntry(entry) }
                     .onSuccess { savedEntry ->
                         val now = System.currentTimeMillis()
-                        if (entry.id == 0L && savedEntry.id != 0L) {
-                            // Entry mới: Supabase sinh id mới, xóa bản local cũ và insert với id từ Supabase
+                        if (entry.id != savedEntry.id) {
                             journalDao.deleteEntry(entry)
                             journalDao.insertEntry(savedEntry.copy(
                                 userId = entry.userId,
@@ -310,7 +309,6 @@ class SyncEngineImpl @Inject constructor(
                     }
             }
         }
-
         // --- Download SAU (task 8.5) — lấy tất cả từ Supabase về Room ---
         supabaseClient.fetchJournalEntries(userId).onSuccess { remoteEntries ->
             for (remote in remoteEntries) {
