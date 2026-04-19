@@ -8,8 +8,12 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface NewsDao {
 
-    @Query("SELECT * FROM news_articles ORDER BY published_at DESC")
-    fun getAllNews(): PagingSource<Int, NewsArticleEntity>
+    @Query("""
+        SELECT * FROM news_articles 
+        WHERE (:query = '' OR title LIKE '%' || :query || '%' OR summary LIKE '%' || :query || '%' OR stock_symbols LIKE '%' || :query || '%')
+        ORDER BY published_at DESC
+    """)
+    fun getAllNews(query: String): PagingSource<Int, NewsArticleEntity>
 
 
     @Query("""

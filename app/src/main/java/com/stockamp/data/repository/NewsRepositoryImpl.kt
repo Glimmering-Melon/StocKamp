@@ -26,18 +26,23 @@ class NewsRepositoryImpl @Inject constructor(
 ) : NewsRepository {
 
     @OptIn(ExperimentalPagingApi::class)
-    override fun getNewsStream(pageSize: Int): Flow<PagingData<NewsArticle>> {
+    override fun getNewsStream(query: String, pageSize: Int): Flow<PagingData<NewsArticle>> {
         return Pager(
             config = PagingConfig(
                 pageSize = pageSize,
                 enablePlaceholders = false
             ),
-            remoteMediator = NewsRemoteMediator(
-                newsDao = newsDao,
-                supabaseClient = supabaseClient,
-                pageSize = pageSize
-            ),
-            pagingSourceFactory = { newsDao.getAllNews() }
+
+            remoteMediator = if (query.isBlank()) {
+                NewsRemoteMediator(
+                    newsDao = newsDao,
+                    supabaseClient = supabaseClient,
+                    pageSize = pageSize
+                )
+            } else {
+                null
+            },
+            pagingSourceFactory = { newsDao.getAllNews(query) }
         ).flow.map { pagingData ->
             pagingData.map { entity -> entity.toDomain() }
         }
@@ -114,4 +119,3 @@ class NewsRepositoryImpl @Inject constructor(
         }
     }
 }
-
