@@ -30,10 +30,11 @@ class NewsViewModel @Inject constructor(
 
     private val _searchQuery = MutableStateFlow("")
 
+    // SỬA Ở ĐÂY: Dùng lại flatMapLatest, và quan trọng nhất là phải TRUYỀN `query` VÀO hàm getNewsStream
     @OptIn(ExperimentalCoroutinesApi::class)
     val newsPagingData: Flow<PagingData<NewsArticle>> = _searchQuery
-        .flatMapLatest {
-            repository.getNewsStream().cachedIn(viewModelScope)
+        .flatMapLatest { query ->
+            repository.getNewsStream(query).cachedIn(viewModelScope)
         }.cachedIn(viewModelScope)
 
     init {
