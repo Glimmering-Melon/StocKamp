@@ -2,8 +2,6 @@ package com.stockamp.ui.news
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -16,20 +14,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
-import com.stockamp.data.model.NewsArticle
-import com.stockamp.data.model.toVietnamDisplayString
-import com.stockamp.ui.theme.AccentBlue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +35,7 @@ fun NewsListScreen(
 
     LaunchedEffect(initialSymbolFilter) {
         if (!initialSymbolFilter.isNullOrBlank()) {
-            viewModel.applyFilter(listOf(initialSymbolFilter))
+            viewModel.applyFilter(initialSymbolFilter)
         }
     }
 
@@ -83,8 +74,8 @@ fun NewsListScreen(
             ) {
                 OutlinedTextField(
                     value = filterInput,
-                    onValueChange = { filterInput = it.uppercase() },
-                    placeholder = { Text("Lọc theo mã (VD: VNM)") },
+                    onValueChange = { filterInput = it },
+                    placeholder = { Text("Tìm kiếm bài viết...") },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true
@@ -92,12 +83,12 @@ fun NewsListScreen(
                 Button(
                     onClick = {
                         if (filterInput.isNotBlank()) {
-                            viewModel.applyFilter(activeFilters + filterInput.trim())
+                            viewModel.applyFilter(filterInput.trim())
                             filterInput = ""
                         }
                     },
                     shape = RoundedCornerShape(12.dp)
-                ) { Text("Lọc") }
+                ) { Text("Tìm kiếm") }
             }
 
             // Active filter chips
@@ -111,11 +102,9 @@ fun NewsListScreen(
                         InputChip(
                             selected = true,
                             onClick = {
-                                val newFilters = activeFilters - symbol
-                                if (newFilters.isEmpty()) viewModel.clearFilter()
-                                else viewModel.applyFilter(newFilters)
+                                viewModel.clearFilter()
                             },
-                            label = { Text(symbol) },
+                            label = { Text("Từ khoá: $symbol") },
                             trailingIcon = { Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp)) },
                             shape = RoundedCornerShape(8.dp)
                         )
@@ -146,21 +135,20 @@ fun NewsListScreen(
                 }
                 else -> {
                     LazyColumn(
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         items(pagingItems.itemCount) { index ->
                             val article = pagingItems[index] ?: return@items
-                            // Apply client-side symbol filter if active
-                            if (activeFilters.isNotEmpty() &&
-                                activeFilters.none { sym -> article.stockSymbols.any { it.equals(sym, ignoreCase = true) } }
-                            ) return@items
+
+
                             NewsArticleCard(
                                 article = article,
                                 onClick = {
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(article.url))
                                     context.startActivity(intent)
-                                }
+                                },
+
+                                modifier = Modifier.padding(bottom = 8.dp)
                             )
                         }
                         if (pagingItems.loadState.append is LoadState.Loading) {
@@ -171,89 +159,6 @@ fun NewsListScreen(
                             }
                         }
                         item { Spacer(modifier = Modifier.height(80.dp)) }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun NewsArticleCard(
-    article: NewsArticle,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(1.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = article.sourceName,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = AccentBlue,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = article.publishedAt.toVietnamDisplayString(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = article.title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (!article.summary.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = article.summary,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                SentimentChip(
-                    label = article.sentimentLabel,
-                    score = article.sentimentScore,
-                    status = article.status
-                )
-                if (article.stockSymbols.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        article.stockSymbols.take(3).forEach { sym ->
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = sym,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
                     }
                 }
             }

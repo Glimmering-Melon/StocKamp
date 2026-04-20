@@ -13,6 +13,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -191,7 +192,17 @@ class AddEditJournalViewModel @Inject constructor(
     fun deleteEntry(onSuccess: () -> Unit) {
         val entry = loadedEntry ?: return
         viewModelScope.launch {
-            journalDao.deleteEntry(entry)
+            val currentEntry = journalDao.getEntryById(entry.id)
+                ?: journalDao.getAllEntries().first().find { it.createdAt == entry.createdAt }
+                ?: entry
+
+            val deletedEntry = currentEntry.copy(
+                isDeleted = true,
+                modifiedAt = System.currentTimeMillis()
+            )
+
+            journalDao.updateEntry(deletedEntry)
+
             syncEngine.syncJournal()
             onSuccess()
         }

@@ -7,11 +7,13 @@ import androidx.paging.cachedIn
 import com.stockamp.data.model.NewsArticle
 import com.stockamp.data.repository.NewsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -26,10 +28,14 @@ class NewsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<NewsUiState>(NewsUiState.Loading)
     val uiState: StateFlow<NewsUiState> = _uiState.asStateFlow()
 
-    val newsPagingData: Flow<PagingData<NewsArticle>> =
-        repository.getNewsStream().cachedIn(viewModelScope)
+    private val _searchQuery = MutableStateFlow("")
 
-    private val _activeFilters = MutableStateFlow<List<String>>(emptyList())
+    // SỬA Ở ĐÂY: Dùng lại flatMapLatest, và quan trọng nhất là phải TRUYỀN `query` VÀO hàm getNewsStream
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val newsPagingData: Flow<PagingData<NewsArticle>> = _searchQuery
+        .flatMapLatest { query ->
+            repository.getNewsStream(query).cachedIn(viewModelScope)
+        }.cachedIn(viewModelScope)
 
     init {
         observeLatestNews()
@@ -38,7 +44,7 @@ class NewsViewModel @Inject constructor(
     private fun observeLatestNews() {
         repository.getLatestNews(limit = 5)
             .onEach { articles ->
-                val currentFilters = _activeFilters.value
+                val currentFilters = if (_searchQuery.value.isNotBlank()) listOf(_searchQuery.value) else emptyList()
                 _uiState.update {
                     NewsUiState.Success(
                         latestNews = articles,
@@ -54,18 +60,18 @@ class NewsViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    fun applyFilter(symbols: List<String>) {
-        _activeFilters.value = symbols
+    fun applyFilter(query: String) {
+        _searchQuery.value = query
         _uiState.update { current ->
             when (current) {
-                is NewsUiState.Success -> current.copy(activeFilters = symbols)
+                is NewsUiState.Success -> current.copy(activeFilters = if (query.isNotBlank()) listOf(query) else emptyList())
                 else -> current
             }
         }
     }
 
     fun clearFilter() {
-        _activeFilters.value = emptyList()
+        _searchQuery.value = ""
         _uiState.update { current ->
             when (current) {
                 is NewsUiState.Success -> current.copy(activeFilters = emptyList())
@@ -91,7 +97,7 @@ class NewsViewModel @Inject constructor(
     }
 
     fun loadForSymbol(symbol: String) {
-        applyFilter(listOf(symbol))
+        applyFilter(symbol)
     }
 
     override fun onCleared() {
