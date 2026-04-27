@@ -159,4 +159,8 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("io.kotest:kotest-property:5.8.0")
     testImplementation("io.kotest:kotest-assertions-core:5.8.0")
+
+    //glance
+    implementation("androidx.glance:glance-appwidget:1.0.0")
+    implementation("androidx.glance:glance-material3:1.0.0")
 }
