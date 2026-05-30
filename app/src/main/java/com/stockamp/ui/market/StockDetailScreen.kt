@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -44,6 +45,82 @@ fun StockDetailScreen(
 
     val changePercent = uiState.changePercent
     val isPositive = changePercent != null && changePercent >= 0
+    var showForecastDialog by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.forecastedPrices) {
+        if (uiState.forecastedPrices.isNotEmpty()) {
+            showForecastDialog = true
+        }
+    }
+
+    val forecastDay30 = uiState.forecastedPrices.lastOrNull()
+    val currentPrice = uiState.latestClose?.close
+        ?: (chartState as? ChartUiState.Success)?.priceData?.lastOrNull()?.close
+
+    if (showForecastDialog && forecastDay30 != null) {
+        val isForecastUp = currentPrice?.let { forecastDay30 >= it } ?: true
+        val trendColor = if (isForecastUp) AccentGreen else AccentRed
+
+        AlertDialog(
+            onDismissRequest = { showForecastDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.AutoGraph,
+                    contentDescription = null,
+                    tint = trendColor
+                )
+            },
+            title = {
+                Text("30-day forecast")
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Estimated close on day 30",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "${String.format("%,.0f", forecastDay30)} VND",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = trendColor
+                    )
+                    currentPrice?.let { price ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (isForecastUp) {
+                                "Higher than current close (${String.format("%,.0f", price)} VND)"
+                            } else {
+                                "Lower than current close (${String.format("%,.0f", price)} VND)"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = trendColor
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showForecastDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    uiState.forecastError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { viewModel.clearForecastError() },
+            title = { Text("Forecast unavailable") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.clearForecastError() }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -57,6 +134,22 @@ fun StockDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = { viewModel.generate30DaysForecast(symbol) },
+                        enabled = !uiState.isForecasting
+                    ) {
+                        if (uiState.isForecasting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.AutoGraph,
+                                contentDescription = "AI forecast"
+                            )
+                        }
+                    }
                     IconButton(onClick = { viewModel.toggleWatchlist() }) {
                         Icon(
                             if (uiState.isInWatchlist) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
@@ -144,6 +237,30 @@ fun StockDetailScreen(
                 Text(
                     text = if (uiState.isInWatchlist) "Đã theo dõi" else "Thêm vào danh sách theo dõi"
                 )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = { viewModel.generate30DaysForecast(symbol) },
+                enabled = !uiState.isForecasting,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (uiState.isForecasting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.AutoGraph,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Dự báo AI 30 ngày")
             }
 
             Spacer(modifier = Modifier.height(24.dp))

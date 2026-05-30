@@ -13,12 +13,15 @@ import com.stockamp.data.model.TechnicalIndicator
 import com.stockamp.data.model.Timeframe
 import com.stockamp.data.model.WatchlistItem
 import com.stockamp.data.supabase.SupabaseClient
+import com.stockamp.ml.StockPredictor
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -29,7 +32,10 @@ data class StockDetailUiState(
     val symbolInfo: StockSymbolInfo? = null,
     val latestClose: LatestCloseResult? = null,
     val changePercent: Double? = null,
-    val isInWatchlist: Boolean = false
+    val isInWatchlist: Boolean = false,
+    val forecastedPrices: List<Double> = emptyList(),
+    val isForecasting: Boolean = false,
+    val forecastError: String? = null
 )
 
 @HiltViewModel
@@ -37,7 +43,8 @@ class StockDetailViewModel @Inject constructor(
     private val marketRepository: MarketRepository,
     private val watchlistDao: WatchlistDao,
     private val indicatorCalculator: TechnicalIndicatorCalculator,
-    private val supabaseClient: SupabaseClient
+    private val supabaseClient: SupabaseClient,
+    private val stockPredictor: StockPredictor
 ) : ViewModel() {
 
     private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
@@ -115,6 +122,67 @@ class StockDetailViewModel @Inject constructor(
             val inWatchlist = watchlistDao.isInWatchlist(symbol) > 0
             _uiState.update { it.copy(isInWatchlist = inWatchlist) }
         }
+    }
+
+    fun generate30DaysForecast(symbol: String = currentSymbol) {
+        val targetSymbol = symbol.ifBlank { currentSymbol }
+        if (targetSymbol.isBlank() || _uiState.value.isForecasting) return
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isForecasting = true,
+                    forecastedPrices = emptyList(),
+                    forecastError = null
+                )
+            }
+
+            marketRepository.getOhlcv(targetSymbol, Timeframe.ONE_DAY.apiValue)
+                .onSuccess { data ->
+                    val closePrices = data
+                        .sortedBy { it.timestamp }
+                        .map { it.close }
+                        .filter { it.isFinite() && it > 0.0 }
+
+                    if (closePrices.size < 30) {
+                        _uiState.update {
+                            it.copy(
+                                isForecasting = false,
+                                forecastError = "Need at least 30 close prices to forecast."
+                            )
+                        }
+                        return@launch
+                    }
+
+                    val forecasts = withContext(Dispatchers.Default) {
+                        stockPredictor.predict30DaysAhead(closePrices)
+                    }
+
+                    _uiState.update {
+                        it.copy(
+                            forecastedPrices = forecasts,
+                            isForecasting = false,
+                            forecastError = if (forecasts.isEmpty()) {
+                                "Unable to generate forecast. Check the TFLite model asset."
+                            } else {
+                                null
+                            }
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isForecasting = false,
+                            forecastError = error.message ?: "Unable to load price history."
+                        )
+                    }
+                }
+        }
+    }
+
+    fun clearForecastError() {
+        _uiState.update { it.copy(forecastError = null) }
     }
 
     fun toggleWatchlist() {
