@@ -13,12 +13,15 @@ import com.stockamp.data.model.TechnicalIndicator
 import com.stockamp.data.model.Timeframe
 import com.stockamp.data.model.WatchlistItem
 import com.stockamp.data.supabase.SupabaseClient
+import com.stockamp.ml.StockPredictor
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -29,7 +32,10 @@ data class StockDetailUiState(
     val symbolInfo: StockSymbolInfo? = null,
     val latestClose: LatestCloseResult? = null,
     val changePercent: Double? = null,
-    val isInWatchlist: Boolean = false
+    val isInWatchlist: Boolean = false,
+    val forecastedPrices: List<Double> = emptyList(),
+    val isForecasting: Boolean = false,
+    val forecastError: String? = null
 )
 
 @HiltViewModel
@@ -37,7 +43,8 @@ class StockDetailViewModel @Inject constructor(
     private val marketRepository: MarketRepository,
     private val watchlistDao: WatchlistDao,
     private val indicatorCalculator: TechnicalIndicatorCalculator,
-    private val supabaseClient: SupabaseClient
+    private val supabaseClient: SupabaseClient,
+    private val stockPredictor: StockPredictor
 ) : ViewModel() {
 
     private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
@@ -53,12 +60,33 @@ class StockDetailViewModel @Inject constructor(
     private var currentTimeframe: Timeframe = Timeframe.ONE_DAY
     private var currentChartType: ChartType = ChartType.CANDLESTICK
     private var visibleIndicators: MutableSet<TechnicalIndicator> = mutableSetOf()
+    private var forecastRequestId = 0
 
     fun loadChartData(symbol: String, timeframe: Timeframe = currentTimeframe) {
+        val isNewSymbol = symbol != currentSymbol
         currentSymbol = symbol
         currentTimeframe = timeframe
         _chartStateInternal.value = ChartUiState.Loading
-        _uiState.update { it.copy(chartState = ChartUiState.Loading) }
+
+        if (isNewSymbol) {
+            forecastRequestId++
+        }
+
+        _uiState.update {
+            if (isNewSymbol) {
+                it.copy(
+                    chartState = ChartUiState.Loading,
+                    symbolInfo = null,
+                    latestClose = null,
+                    changePercent = null,
+                    forecastedPrices = emptyList(),
+                    isForecasting = false,
+                    forecastError = null
+                )
+            } else {
+                it.copy(chartState = ChartUiState.Loading)
+            }
+        }
 
         viewModelScope.launch {
             // Load OHLCV data
@@ -114,6 +142,70 @@ class StockDetailViewModel @Inject constructor(
             // Check watchlist status
             val inWatchlist = watchlistDao.isInWatchlist(symbol) > 0
             _uiState.update { it.copy(isInWatchlist = inWatchlist) }
+        }
+    }
+
+    fun generate30DaysForecast(symbol: String = currentSymbol) {
+        val targetSymbol = symbol.ifBlank { currentSymbol }
+        if (targetSymbol.isBlank()) return
+        val requestId = ++forecastRequestId
+
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isForecasting = true,
+                    forecastedPrices = emptyList(),
+                    forecastError = null
+                )
+            }
+
+            marketRepository.getOhlcv(targetSymbol, Timeframe.ONE_DAY.apiValue)
+                .onSuccess { data ->
+                    if (requestId != forecastRequestId) return@launch
+
+                    val closePrices = data
+                        .sortedBy { it.timestamp }
+                        .map { it.close }
+                        .filter { it.isFinite() && it > 0.0 }
+
+                    if (closePrices.size < 10) {
+                        _uiState.update {
+                            it.copy(
+                                isForecasting = false,
+                                forecastError = "Need at least 10 close prices to forecast."
+                            )
+                        }
+                        return@launch
+                    }
+
+                    val forecasts = withContext(Dispatchers.Default) {
+                        stockPredictor.predict30DaysAhead(closePrices)
+                    }
+
+                    if (requestId != forecastRequestId) return@launch
+
+                    _uiState.update {
+                        it.copy(
+                            forecastedPrices = forecasts,
+                            isForecasting = false,
+                            forecastError = if (forecasts.isEmpty()) {
+                                "Unable to generate forecast. Check the TFLite model asset."
+                            } else {
+                                null
+                            }
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    if (requestId != forecastRequestId) return@launch
+
+                    _uiState.update {
+                        it.copy(
+                            isForecasting = false,
+                            forecastError = error.message ?: "Unable to load price history."
+                        )
+                    }
+                }
         }
     }
 

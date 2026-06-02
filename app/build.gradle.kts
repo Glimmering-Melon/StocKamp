@@ -81,6 +81,10 @@ android {
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.8"
     }
+    androidResources {
+        // Keep TFLite assets uncompressed so Interpreter can memory-map them.
+        noCompress += "tflite"
+    }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -159,4 +163,11 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("io.kotest:kotest-property:5.8.0")
     testImplementation("io.kotest:kotest-assertions-core:5.8.0")
+
+    //glance
+    implementation("androidx.glance:glance-appwidget:1.0.0")
+    implementation("androidx.glance:glance-material3:1.0.0")
+
+    // TensorFlow Lite for on-device ML inference.
+    implementation("org.tensorflow:tensorflow-lite:2.17.0")
 }
