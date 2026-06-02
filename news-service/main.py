@@ -30,6 +30,29 @@ scheduler = AsyncIOScheduler()
 _market_state = {"running": False, "progress": "", "records_upserted": 0}
 
 
+def _play_cat_animation():
+    """Play ASCII cat animation on startup using cat.py logic."""
+    try:
+        # Look for cat.mp4 relative to this file or in parent directory
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        video_path = os.path.join(base_dir, "..", "cat.mp4")
+        cat_py = os.path.join(base_dir, "..", "cat.py")
+
+        if not os.path.exists(video_path):
+            return
+
+        # Dynamically load VideoToAscii from cat.py
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cat", cat_py)
+        cat_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cat_module)
+
+        converter = cat_module.VideoToAscii(video_path, width=100)
+        converter.display_video_ascii()
+    except Exception:
+        pass  # Animation is optional — never block server startup
+
+
 # ── Scheduled jobs ────────────────────────────────────────────────────────
 
 async def crawl_job():
@@ -106,6 +129,11 @@ def _run_market_crawl(backfill: bool):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Play ASCII cat animation in a foreground thread before starting services
+    cat_thread = threading.Thread(target=_play_cat_animation, daemon=True)
+    cat_thread.start()
+    cat_thread.join()  # Wait for animation to finish before starting scheduler
+
     scheduler.add_job(crawl_job, "interval", minutes=15, id="news_crawler")
     scheduler.add_job(process_job, "interval", minutes=15, id="ai_processor", seconds=300)
     scheduler.start()
