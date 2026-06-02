@@ -1,30 +1,54 @@
 package com.stockamp.ui.market
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.AutoGraph
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.stockamp.data.model.ChartUiState
-import com.stockamp.data.model.StockPrice
-import com.stockamp.ui.theme.*
+import com.stockamp.ui.theme.AccentGreen
+import com.stockamp.ui.theme.AccentRed
+import com.stockamp.ui.theme.AccentYellow
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,89 +62,16 @@ fun StockDetailScreen(
 
     LaunchedEffect(symbol) {
         viewModel.loadChartData(symbol)
+        viewModel.generate30DaysForecast(symbol)
     }
 
     val isChartLoading = chartState is ChartUiState.Loading
     val isChartError = chartState is ChartUiState.Error
-
     val changePercent = uiState.changePercent
     val isPositive = changePercent != null && changePercent >= 0
-    var showForecastDialog by rememberSaveable { mutableStateOf(false) }
-
-    LaunchedEffect(uiState.forecastedPrices) {
-        if (uiState.forecastedPrices.isNotEmpty()) {
-            showForecastDialog = true
-        }
-    }
-
     val forecastDay30 = uiState.forecastedPrices.lastOrNull()
     val currentPrice = uiState.latestClose?.close
         ?: (chartState as? ChartUiState.Success)?.priceData?.lastOrNull()?.close
-
-    if (showForecastDialog && forecastDay30 != null) {
-        val isForecastUp = currentPrice?.let { forecastDay30 >= it } ?: true
-        val trendColor = if (isForecastUp) AccentGreen else AccentRed
-
-        AlertDialog(
-            onDismissRequest = { showForecastDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.AutoGraph,
-                    contentDescription = null,
-                    tint = trendColor
-                )
-            },
-            title = {
-                Text("30-day forecast")
-            },
-            text = {
-                Column {
-                    Text(
-                        text = "Estimated close on day 30",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "${String.format("%,.0f", forecastDay30)} VND",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = trendColor
-                    )
-                    currentPrice?.let { price ->
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = if (isForecastUp) {
-                                "Higher than current close (${String.format("%,.0f", price)} VND)"
-                            } else {
-                                "Lower than current close (${String.format("%,.0f", price)} VND)"
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = trendColor
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showForecastDialog = false }) {
-                    Text("OK")
-                }
-            }
-        )
-    }
-
-    uiState.forecastError?.let { message ->
-        AlertDialog(
-            onDismissRequest = { viewModel.clearForecastError() },
-            title = { Text("Forecast unavailable") },
-            text = { Text(message) },
-            confirmButton = {
-                TextButton(onClick = { viewModel.clearForecastError() }) {
-                    Text("OK")
-                }
-            }
-        )
-    }
 
     Scaffold(
         topBar = {
@@ -130,26 +81,10 @@ fun StockDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = { viewModel.generate30DaysForecast(symbol) },
-                        enabled = !uiState.isForecasting
-                    ) {
-                        if (uiState.isForecasting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.AutoGraph,
-                                contentDescription = "AI forecast"
-                            )
-                        }
-                    }
                     IconButton(onClick = { viewModel.toggleWatchlist() }) {
                         Icon(
                             if (uiState.isInWatchlist) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
@@ -173,7 +108,6 @@ fun StockDetailScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Company name
             Text(
                 text = uiState.symbolInfo?.name ?: symbol,
                 style = MaterialTheme.typography.bodyMedium,
@@ -181,10 +115,9 @@ fun StockDetailScreen(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Price
             Row(verticalAlignment = Alignment.Bottom) {
                 val priceText = uiState.latestClose?.close?.let {
-                    String.format("%,.0f", it)
+                    String.format(Locale.US, "%,.0f", it)
                 } ?: "--"
                 Text(
                     text = priceText,
@@ -202,18 +135,17 @@ fun StockDetailScreen(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Change percent
             if (changePercent != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        if (isPositive) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
+                        if (isPositive) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
                         tint = if (isPositive) AccentGreen else AccentRed
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${if (isPositive) "+" else ""}${String.format("%.2f", changePercent)}%",
+                        text = "${if (isPositive) "+" else ""}${String.format(Locale.US, "%.2f", changePercent)}%",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = if (isPositive) AccentGreen else AccentRed
@@ -223,7 +155,6 @@ fun StockDetailScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Watchlist button
             OutlinedButton(
                 onClick = { viewModel.toggleWatchlist() },
                 modifier = Modifier.fillMaxWidth()
@@ -241,31 +172,15 @@ fun StockDetailScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Button(
-                onClick = { viewModel.generate30DaysForecast(symbol) },
-                enabled = !uiState.isForecasting,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (uiState.isForecasting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.AutoGraph,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Dự báo AI 30 ngày")
-            }
+            ForecastSummaryCard(
+                isForecasting = uiState.isForecasting,
+                forecastDay30 = forecastDay30,
+                currentPrice = currentPrice,
+                forecastError = uiState.forecastError
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Chart card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -282,6 +197,7 @@ fun StockDetailScreen(
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                         }
                     }
+
                     isChartError -> {
                         val errorMsg = (chartState as ChartUiState.Error).message
                         Column(
@@ -296,11 +212,12 @@ fun StockDetailScreen(
                                 color = MaterialTheme.colorScheme.error
                             )
                             Spacer(modifier = Modifier.height(12.dp))
-                            Button(onClick = { viewModel.retryLoad() }) {
+                            androidx.compose.material3.Button(onClick = { viewModel.retryLoad() }) {
                                 Text("Thử lại")
                             }
                         }
                     }
+
                     else -> {
                         ChartComponent(
                             chartState = chartState,
@@ -316,7 +233,6 @@ fun StockDetailScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Symbol info details
             uiState.symbolInfo?.let { info ->
                 Text(
                     "Thông tin cổ phiếu",
@@ -355,54 +271,126 @@ fun StockDetailScreen(
 }
 
 @Composable
-fun StockChart(
-    prices: List<StockPrice>,
-    isPositive: Boolean,
-    modifier: Modifier = Modifier
+private fun ForecastSummaryCard(
+    isForecasting: Boolean,
+    forecastDay30: Double?,
+    currentPrice: Double?,
+    forecastError: String?
 ) {
-    val lineColor = if (isPositive) AccentGreen else AccentRed
-    val fillColor = if (isPositive)
-        Brush.verticalGradient(listOf(AccentGreen.copy(alpha = 0.3f), AccentGreen.copy(alpha = 0.0f)))
-    else
-        Brush.verticalGradient(listOf(AccentRed.copy(alpha = 0.3f), AccentRed.copy(alpha = 0.0f)))
+    val isForecastUp = currentPrice?.let { price ->
+        forecastDay30?.let { it >= price }
+    } ?: true
+    val trendColor = if (isForecastUp) AccentGreen else AccentRed
 
-    val closePrices = prices.map { it.close.toFloat() }
-    val minPrice = closePrices.minOrNull() ?: 0f
-    val maxPrice = closePrices.maxOrNull() ?: 1f
-    val priceRange = (maxPrice - minPrice).coerceAtLeast(1f)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            when {
+                isForecasting -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "AI đang dự báo",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Đang tính giá 30 ngày tới...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
-    Canvas(modifier = modifier) {
-        val width = size.width
-        val height = size.height
-        val stepX = width / (closePrices.size - 1).coerceAtLeast(1)
+                forecastDay30 != null -> {
+                    Icon(
+                        imageVector = Icons.Default.AutoGraph,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = trendColor
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Dự báo AI sau 30 ngày",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "${String.format(Locale.US, "%,.0f", forecastDay30)} VND",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = trendColor
+                        )
+                    }
+                    currentPrice?.let { price ->
+                        val percent = if (price != 0.0) {
+                            (forecastDay30 - price) / price * 100.0
+                        } else {
+                            0.0
+                        }
+                        Text(
+                            text = "${if (percent >= 0) "+" else ""}${String.format(Locale.US, "%.2f", percent)}%",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = trendColor
+                        )
+                    }
+                }
 
-        val linePath = Path()
-        val fillPath = Path()
+                forecastError != null -> {
+                    Icon(
+                        imageVector = Icons.Default.AutoGraph,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Chưa có dự báo AI",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            text = forecastError,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
 
-        closePrices.forEachIndexed { index, price ->
-            val x = index * stepX
-            val y = height - ((price - minPrice) / priceRange * height)
-
-            if (index == 0) {
-                linePath.moveTo(x, y)
-                fillPath.moveTo(x, height)
-                fillPath.lineTo(x, y)
-            } else {
-                linePath.lineTo(x, y)
-                fillPath.lineTo(x, y)
+                else -> {
+                    Icon(
+                        imageVector = Icons.Default.AutoGraph,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Đang chờ dữ liệu dự báo AI",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
-
-        fillPath.lineTo(width, height)
-        fillPath.close()
-
-        drawPath(path = fillPath, brush = fillColor)
-        drawPath(path = linePath, color = lineColor, style = Stroke(width = 3f, cap = StrokeCap.Round))
-
-        val lastX = (closePrices.size - 1) * stepX
-        val lastY = height - ((closePrices.last() - minPrice) / priceRange * height)
-        drawCircle(color = lineColor, radius = 6f, center = Offset(lastX, lastY))
-        drawCircle(color = Color.White, radius = 3f, center = Offset(lastX, lastY))
     }
 }
 

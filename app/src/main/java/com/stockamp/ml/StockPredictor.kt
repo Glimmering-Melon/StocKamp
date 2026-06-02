@@ -11,6 +11,7 @@ import javax.inject.Singleton
 import kotlin.math.max
 
 private const val MODEL_FILE_NAME = "lstm_stock_model.tflite"
+private const val MIN_CLOSE_PRICES = 10
 private const val TIME_STEPS = 30
 private const val FORECAST_DAYS = 30
 
@@ -29,9 +30,9 @@ class StockPredictor @Inject constructor(
                 .filter { it.isFinite() && it > 0.0 }
                 .takeLast(TIME_STEPS)
 
-            if (cleanPrices.size < TIME_STEPS) return emptyList()
+            if (cleanPrices.size < MIN_CLOSE_PRICES) return emptyList()
 
-            val rollingWindow = cleanPrices.toMutableList()
+            val rollingWindow = padToTimeSteps(cleanPrices).toMutableList()
             val forecasts = mutableListOf<Double>()
 
             repeat(FORECAST_DAYS) {
@@ -74,5 +75,13 @@ class StockPredictor @Inject constructor(
                 )
             }
         }
+    }
+
+    private fun padToTimeSteps(prices: List<Double>): List<Double> {
+        if (prices.size >= TIME_STEPS) return prices.takeLast(TIME_STEPS)
+
+        val firstPrice = prices.first()
+        val padding = List(TIME_STEPS - prices.size) { firstPrice }
+        return padding + prices
     }
 }

@@ -60,12 +60,33 @@ class StockDetailViewModel @Inject constructor(
     private var currentTimeframe: Timeframe = Timeframe.ONE_DAY
     private var currentChartType: ChartType = ChartType.CANDLESTICK
     private var visibleIndicators: MutableSet<TechnicalIndicator> = mutableSetOf()
+    private var forecastRequestId = 0
 
     fun loadChartData(symbol: String, timeframe: Timeframe = currentTimeframe) {
+        val isNewSymbol = symbol != currentSymbol
         currentSymbol = symbol
         currentTimeframe = timeframe
         _chartStateInternal.value = ChartUiState.Loading
-        _uiState.update { it.copy(chartState = ChartUiState.Loading) }
+
+        if (isNewSymbol) {
+            forecastRequestId++
+        }
+
+        _uiState.update {
+            if (isNewSymbol) {
+                it.copy(
+                    chartState = ChartUiState.Loading,
+                    symbolInfo = null,
+                    latestClose = null,
+                    changePercent = null,
+                    forecastedPrices = emptyList(),
+                    isForecasting = false,
+                    forecastError = null
+                )
+            } else {
+                it.copy(chartState = ChartUiState.Loading)
+            }
+        }
 
         viewModelScope.launch {
             // Load OHLCV data
@@ -126,7 +147,8 @@ class StockDetailViewModel @Inject constructor(
 
     fun generate30DaysForecast(symbol: String = currentSymbol) {
         val targetSymbol = symbol.ifBlank { currentSymbol }
-        if (targetSymbol.isBlank() || _uiState.value.isForecasting) return
+        if (targetSymbol.isBlank()) return
+        val requestId = ++forecastRequestId
 
         viewModelScope.launch {
             _uiState.update {
@@ -139,16 +161,18 @@ class StockDetailViewModel @Inject constructor(
 
             marketRepository.getOhlcv(targetSymbol, Timeframe.ONE_DAY.apiValue)
                 .onSuccess { data ->
+                    if (requestId != forecastRequestId) return@launch
+
                     val closePrices = data
                         .sortedBy { it.timestamp }
                         .map { it.close }
                         .filter { it.isFinite() && it > 0.0 }
 
-                    if (closePrices.size < 30) {
+                    if (closePrices.size < 10) {
                         _uiState.update {
                             it.copy(
                                 isForecasting = false,
-                                forecastError = "Need at least 30 close prices to forecast."
+                                forecastError = "Need at least 10 close prices to forecast."
                             )
                         }
                         return@launch
@@ -157,6 +181,8 @@ class StockDetailViewModel @Inject constructor(
                     val forecasts = withContext(Dispatchers.Default) {
                         stockPredictor.predict30DaysAhead(closePrices)
                     }
+
+                    if (requestId != forecastRequestId) return@launch
 
                     _uiState.update {
                         it.copy(
@@ -171,6 +197,8 @@ class StockDetailViewModel @Inject constructor(
                     }
                 }
                 .onFailure { error ->
+                    if (requestId != forecastRequestId) return@launch
+
                     _uiState.update {
                         it.copy(
                             isForecasting = false,
@@ -179,10 +207,6 @@ class StockDetailViewModel @Inject constructor(
                     }
                 }
         }
-    }
-
-    fun clearForecastError() {
-        _uiState.update { it.copy(forecastError = null) }
     }
 
     fun toggleWatchlist() {
